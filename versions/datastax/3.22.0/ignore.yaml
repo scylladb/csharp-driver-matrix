@@ -1,0 +1,6 @@
+# Last verified state on Dec XX, 2024 by Dmytro Kruglov
+tests:
+  ignore:
+    - Cassandra.IntegrationTests.Policies.Tests.TokenAwareTransientReplicationTests  # for cassandra v4.0.0 and higher
+    - Cassandra.IntegrationTests.Linq.LinqRealClusterTests.LinqWhere_WithVectors  # for cassandra v5.0.0 and higher
+  flaky:

@@ -1,0 +1,211 @@
+diff --git a/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs b/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
+index b5303b43..8ce3768e 100644
+--- a/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
++++ b/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
+@@ -117,16 +117,27 @@ namespace Cassandra.IntegrationTests.TestBase
+ 
+             if (!TestClusterManager.IsDse && requiresDse)
+             {
++                var currentEnv = TestClusterManager.IsScylla
++                    ? $"Scylla {TestClusterManager.ScyllaVersion}"
++                    : $"OSS Cassandra {TestClusterManager.CassandraVersion}";
++                
+                 message = $"Test designed to run with DSE {TestDseVersion.GetComparisonText(comparison)} " +
+-                          $"v{expectedVersion} (executing OSS {TestClusterManager.CassandraVersion})";
++                          $"v{expectedVersion} (executing {currentEnv})";
+                 return false;
+             }
++            
++            var executingVersion = TestClusterManager.IsDse ? TestClusterManager.DseVersion :
++                TestClusterManager.IsScylla ? TestClusterManager.ScyllaVersion :
++                TestClusterManager.CassandraVersion;
++
++            var execLabel = TestClusterManager.IsDse ? $"DSE {executingVersion}" :
++                TestClusterManager.IsScylla ? $"Scylla {executingVersion}" :
++                $"OSS Cassandra {executingVersion}";
+ 
+-            var executingVersion = TestClusterManager.IsDse ? TestClusterManager.DseVersion : TestClusterManager.CassandraVersion;
+-            if (!TestDseVersion.VersionMatch(expectedVersion, executingVersion, comparison))
++            if (!VersionMatch(expectedVersion, executingVersion, comparison))
+             {
+-                message =
+-                    $"Test designed to run with DSE {TestDseVersion.GetComparisonText(comparison)} v{expectedVersion} (executing {executingVersion})";
++                var designedEnv = requiresDse ? "DSE" : (requiresOss ? "OSS Cassandra" : "OSS Cassandra or DSE");
++                message = $"Test designed to run with {designedEnv} {GetComparisonText(comparison)} v{expectedVersion} (executing {execLabel})";
+                 return false;
+             }
+ 
+diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs
+index dde5d86f..4ef94a4c 100644
+--- a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs
++++ b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs
+@@ -29,18 +29,21 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+         public DirectoryInfo CcmDir { get; private set; }
+         public string Name { get; private set; }
+         public string Version { get; private set; }
+-        public string IpPrefix { get; private set; }
++        public string ScyllaVersion { get; private set; }
++        public string IdPrefix { get; private set; }
++        public string IpPrefix => $"127.0.{IdPrefix}.";
+         public ICcmProcessExecuter CcmProcessExecuter { get; set; }
+         private readonly string _dseInstallPath;
+ 
+-        public CcmBridge(string name, string ipPrefix, string dsePath, string version, ICcmProcessExecuter executor)
++        public CcmBridge(string name, string idPrefix, string dsePath, string version, string scyllaVersion, ICcmProcessExecuter executor)
+         {
+             Name = name;
+-            IpPrefix = ipPrefix;
++            IdPrefix = idPrefix;
+             CcmDir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
+             CcmProcessExecuter = executor;
+             _dseInstallPath = dsePath;
+             Version = version;
++            ScyllaVersion = scyllaVersion;
+         }
+ 
+         public void Dispose()
+@@ -64,23 +67,18 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+                 sslParams = "--ssl " + sslPath;
+             }
+ 
+-            if (string.IsNullOrEmpty(_dseInstallPath))
++            if (!string.IsNullOrEmpty(ScyllaVersion))
+             {
+-                if (TestClusterManager.IsDse)
+-                {
+-                    ExecuteCcm(string.Format(
+-                        "create {0} --dse -v {1} {2}", Name, Version, sslParams));
+-                }
+-                else
+-                {
+-                    ExecuteCcm(string.Format(
+-                        "create {0} -v {1} {2}", Name, Version, sslParams));
+-                }
++                ExecuteCcm($"create {Name} --scylla -v {ScyllaVersion} {sslParams}");
++            }
++            else if (string.IsNullOrEmpty(_dseInstallPath))
++            {
++                var dseFlag = TestClusterManager.IsDse ? "--dse" : string.Empty;
++                ExecuteCcm($"create {Name} {dseFlag} -v {Version} {sslParams}");
+             }
+             else
+             {
+-                ExecuteCcm(string.Format(
+-                    "create {0} --install-dir={1} {2}", Name, _dseInstallPath, sslParams));
++                ExecuteCcm($"create {Name} --install-dir={_dseInstallPath} {sslParams}");
+             }
+         }
+ 
+diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs
+index 087e60ef..3ee05464 100644
+--- a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs
++++ b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs
+@@ -25,33 +25,37 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+     {
+         public string Name { get; set; }
+         public string Version { get; set; }
++        public string ScyllaVersion { get; set; }
+         public Builder Builder { get; set; }
+         public Cluster Cluster { get; set; }
+         public ISession Session { get; set; }
+         public string InitialContactPoint { get; set; }
+         public string ClusterIpPrefix { get; set; }
++        public string IdPrefix { get; private set; }
+         public string DsePath { get; set; }
+         public string DefaultKeyspace { get; set; }
+         private readonly ICcmProcessExecuter _executor;
+         private CcmBridge _ccm;
+         private int _nodeLength;
+ 
+-        public CcmCluster(string name, string clusterIpPrefix, string dsePath, ICcmProcessExecuter executor, string defaultKeyspace, string version)
++        public CcmCluster(string name, string idPrefix, string dsePath, ICcmProcessExecuter executor, string defaultKeyspace, string version, string scyllaVersion = null)
+         {
+             _executor = executor;
+             Name = name;
+             DefaultKeyspace = defaultKeyspace;
+-            ClusterIpPrefix = clusterIpPrefix;
+-            DsePath = dsePath;
++            IdPrefix = idPrefix;
++            ClusterIpPrefix = $"127.0.{IdPrefix}.";
+             InitialContactPoint = ClusterIpPrefix + "1";
++            DsePath = dsePath;
+             Version = version;
++            ScyllaVersion = scyllaVersion;
+         }
+ 
+         public void Create(int nodeLength, TestClusterOptions options = null)
+         {
+             _nodeLength = nodeLength;
+             options = options ?? TestClusterOptions.Default;
+-            _ccm = new CcmBridge(Name, ClusterIpPrefix, DsePath, Version, _executor);
++            _ccm = new CcmBridge(Name, IdPrefix, DsePath, Version, ScyllaVersion, _executor);
+             _ccm.Create(options.UseSsl);
+             _ccm.Populate(nodeLength, options.Dc2NodeLength, options.UseVNodes);
+             _ccm.UpdateConfig(options.CassandraYaml);
+diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs
+index 662a3cfd..927c169f 100644
+--- a/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs
++++ b/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs
+@@ -28,6 +28,11 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+     {
+         public const string DefaultKeyspaceName = "test_cluster_keyspace";
+         private static ICcmProcessExecuter _executor;
++        private static int _idPrefixCounter = 0;
++        private static string GetUniqueIdPrefix()
++        {
++            return (_idPrefixCounter++).ToString();
++        }
+ 
+         private static readonly Version Version2Dot0 = new Version(2, 0);
+         private static readonly Version Version2Dot1 = new Version(2, 1);
+@@ -113,6 +118,35 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+         {
+             get { return Environment.GetEnvironmentVariable("CASSANDRA_VERSION") ?? "3.11.2"; }
+         }
++        
++        public static string ScyllaVersionString
++        {
++            get { return Environment.GetEnvironmentVariable("SCYLLA_VERSION"); }
++        }
++        
++        public static Version ScyllaVersion
++        {
++            get
++            {
++                if (!IsScylla)
++                {
++                    return null;
++                }
++
++                var rawVersion = ScyllaVersionString;
++                if (rawVersion.Contains(":"))
++                {
++                    rawVersion = rawVersion.Split(':')[1];
++                }
++
++                return new Version(rawVersion);
++            }
++        }
++        
++        public static bool IsScylla
++        {
++            get { return !string.IsNullOrEmpty(ScyllaVersionString); }
++        }
+ 
+         public static bool IsDse
+         {
+@@ -241,11 +275,12 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+             options = options ?? new TestClusterOptions();
+             var testCluster = new CcmCluster(
+                 TestUtils.GetTestClusterNameBasedOnRandomString(),
+-                IpPrefix,
++                GetUniqueIdPrefix(),
+                 DsePath,
+                 Executor,
+                 DefaultKeyspaceName,
+-                IsDse ? DseVersionString : CassandraVersionString);
++                IsDse ? DseVersionString : CassandraVersionString,
++                ScyllaVersionString);
+             testCluster.Create(nodeLength, options);
+             if (startCluster)
+             {
