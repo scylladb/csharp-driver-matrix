@@ -95,7 +95,16 @@ index dde5d86f..4ef94a4c 100644
 +                ExecuteCcm($"create {Name} --install-dir={_dseInstallPath} {sslParams}");
              }
          }
- 
+@@ -267,6 +265,10 @@
+             {
+                 cmd += " --dse";
+             }
++            else if (TestClusterManager.IsScylla)
++            {
++                cmd += " --scylla";
++            }
+
+             var output = ExecuteCcm(string.Format(cmd, n, IpPrefix, n, 7000 + 100 * n, dc != null ? "-d " + dc : null));
 diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs
 index 087e60ef..3ee05464 100644
 --- a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs

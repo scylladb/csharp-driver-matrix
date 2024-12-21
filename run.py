@@ -58,7 +58,7 @@ class Run:
 
         with ignore_file.open(mode="r", encoding="utf-8") as file:
             content = yaml.safe_load(file)
-        ignore_tests = content.get("tests", []) or {'ignore': [], 'flaky': []}
+        ignore_tests = content.get("tests", {'ignore': [], 'flaky': []})
         if not ignore_tests.get("ignore", None):
             logging.info("The file '%s' for version tag '%s' doesn't contain any test to ignore",
                          ignore_file, self.driver_version)
@@ -127,11 +127,25 @@ class Run:
         }
         metadata_file.write_text(json.dumps(metadata))
 
+    def ensure_simulacron(self, version: str = '0.12.0') -> str:
+        simulacron_path = Path(__file__).parent / f"simulacron-standalone-{version}.jar"
+        if not simulacron_path.exists():
+            logging.info("Simulacron version %s is not found. Downloading to %s.", version, str(simulacron_path))
+            try:
+                self._run_command_in_shell(
+                    f"curl -sL -o {simulacron_path} "
+                    f"https://github.com/datastax/simulacron/releases/download/{version}/simulacron-standalone-{version}.jar")
+            except Exception as exc:
+                logging.error("Failed to download Simulacron: %s", str(exc))
+                raise
+        return str(simulacron_path)
+
     def run(self) -> ProcessJUnit | None:
         junit = ProcessJUnit(self.junit_dir / self.junit_file, self.driver_version, self.ignore_tests)
         logging.info("Changing the current working directory to the '%s' path", self._csharp_driver_git)
         os.chdir(self._csharp_driver_git)
         if self._checkout_branch() and self._apply_patch_files():
+            simulacron_path = self.ensure_simulacron()
             for test in self._tests:
                 test_config = test_config_map[test]
                 add_junit_logger_cmd = f'dotnet add {test_config.test_project} package JUnitXml.TestLogger'
@@ -141,9 +155,16 @@ class Run:
 
                 logging.info("Run tests for tag '%s'", test)
                 junit_logger = f'-l "junit;LogFilePath={self.junit_dir / self.junit_file}"'
-                ignore_filter = " | ".join(
-                    f"FullyQualifiedName!~{test}" for test in self.ignore_tests.get("ignore", []))
-                test_cmd = f'dotnet test {test_config.test_project} {test_config.test_command_args} {junit_logger} --filter "{ignore_filter}"'
+
+                ignore_categories = "TestCategory!=long"  # skip the category as per CSHARP-715
+                ignore_tests = " & ".join(
+                    f"FullyQualifiedName!~{test}" for test in self.ignore_tests.get("ignore") or [])
+                ignore_filter = f'({ignore_categories} & {ignore_tests})' if ignore_tests else f'({ignore_categories})'
+
+                test_cmd = (
+                    f'SIMULACRON_PATH={simulacron_path} '
+                    f'dotnet test {test_config.test_project} {test_config.test_command_args} {junit_logger} '
+                    f'--filter "{ignore_filter}"')
                 logging.info("Running the test command '%s'", test_cmd)
                 subprocess.call(f"{test_cmd}", shell=True, executable="/bin/bash",
                                 env=self.environment, cwd=self._csharp_driver_git)
