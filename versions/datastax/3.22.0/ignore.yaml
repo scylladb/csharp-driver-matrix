@@ -3,9 +3,14 @@ tests:
   ignore:
     - ClientWarningsTests  # unrecognised option '-Dcassandra.custom_query_handler_class'
     - CustomPayloadTests  # unrecognised option '-Dcassandra.custom_query_handler_class'
-    - SimpleStatement_Dictionary_Parameters_CaseInsensitivity_ExcessOfParams  # Cassandra only
-    - SimpleStatement_Dictionary_Parameters_CaseInsensitivity_NoOverload  # Cassandra only
     - Connect_With_Ssl_Test  # CCM with SSL is not configured
     - Should_UpdateHosts_When_HostIpChanges  # ccm: no such option: --skip-wait-other-notice
     - Should_UseNewHostInQueryPlans_When_HostIsDecommissionedAndJoinsAgain # error: unrecognised option '-Dcassandra.override_decommission'
+    - Virtual_Keyspaces_Are_Included  # Cassandra only (C* virtual tables)
+    - Virtual_Table_Metadata_Test  # Cassandra only (C* virtual tables)
+    - SessionAuthenticationTests  # unrecognised option '-Dcassandra.superuser_setup_delay_ms'
+    - TypeSerializersTests  # Cassandra only; no support (not planned) for DynamicCompositeType in Scylla
+    - Custom_MetadataTest  # Cassandra only; no support (not planned) for DynamicCompositeType in Scylla
+    - LinqWhere_WithVectors  # Cassandra only; no support for vector searched in Scylla
+    - Should_RemoveNodeMetricsAndDisposeMetricsContext_When_HostIsRemoved  # unrecognised option '-Dcassandra.override_decommission'
   flaky:
