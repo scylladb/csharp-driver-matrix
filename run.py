@@ -155,11 +155,9 @@ class Run:
 
                 logging.info("Run tests for tag '%s'", test)
                 junit_logger = f'-l "junit;LogFilePath={self.junit_dir / self.junit_file}"'
-
-                ignore_categories = "TestCategory!=long"  # skip the category as per CSHARP-715
                 ignore_tests = " & ".join(
                     f"FullyQualifiedName!~{test}" for test in self.ignore_tests.get("ignore") or [])
-                ignore_filter = f'({ignore_categories} & {ignore_tests})' if ignore_tests else f'({ignore_categories})'
+                ignore_filter = f"({ignore_tests})" if ignore_tests else ""
 
                 test_cmd = (
                     f'SIMULACRON_PATH={simulacron_path} '

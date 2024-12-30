@@ -1,5 +1,5 @@
 diff --git a/src/Cassandra.IntegrationTests/Core/UdfTests.cs b/src/Cassandra.IntegrationTests/Core/UdfTests.cs
-index c14cb094..fdf4abc3 100644
+index c14cb094..86470c7d 100644
 --- a/src/Cassandra.IntegrationTests/Core/UdfTests.cs
 +++ b/src/Cassandra.IntegrationTests/Core/UdfTests.cs
 @@ -51,22 +51,26 @@ namespace Cassandra.IntegrationTests.Core
@@ -74,6 +74,25 @@ index c14cb094..fdf4abc3 100644
              Assert.AreEqual(ColumnTypeCode.Int, func.ReturnType.TypeCode);
              Assert.AreEqual(false, func.CalledOnNullInput);
              Assert.False(func.Monotonic);
+@@ -206,7 +210,8 @@ namespace Cassandra.IntegrationTests.Core
+             var session = cluster.Connect("ks_udf");
+             var cluster2 = GetCluster(metadataSync);
+             var session2 = cluster.Connect("ks_udf");
+-            session.Execute("CREATE OR REPLACE FUNCTION stringify(i int) RETURNS NULL ON NULL INPUT RETURNS text LANGUAGE java AS 'return Integer.toString(i);'");
++            var udfLanguage = TestClusterManager.IsScylla ? "lua" : "java";
++            session.Execute($"CREATE OR REPLACE FUNCTION stringify(i int) RETURNS NULL ON NULL INPUT RETURNS text LANGUAGE {udfLanguage} AS 'return Integer.toString(i);'");
+             cluster2.RefreshSchema("ks_udf");
+             Task.Delay(500).GetAwaiter().GetResult(); // wait for events to be processed
+             var _ = cluster2.Metadata.KeyspacesSnapshot // cache 
+@@ -218,7 +223,7 @@ namespace Cassandra.IntegrationTests.Core
+             var func = cluster.Metadata.GetFunction("ks_udf", "stringify", new[] { "int" });
+             Assert.NotNull(func);
+             Assert.AreEqual("return Integer.toString(i);", func.Body);
+-            session.Execute("CREATE OR REPLACE FUNCTION stringify(i int) RETURNS NULL ON NULL INPUT RETURNS text LANGUAGE java AS 'return Integer.toString(i) + \"hello\";'");
++            session.Execute($"CREATE OR REPLACE FUNCTION stringify(i int) RETURNS NULL ON NULL INPUT RETURNS text LANGUAGE {udfLanguage} AS 'return Integer.toString(i) + \"hello\";'");
+             if (metadataSync)
+             {
+                 TestHelper.RetryAssert(() =>
 diff --git a/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs b/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs
 index 7cecd275..c6927928 100644
 --- a/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs
