@@ -10,8 +10,11 @@ import traceback
 from run import Run
 from email_sender import create_report, get_driver_origin_remote, send_mail
 
-logging.basicConfig(level=logging.INFO)
-
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - C# DRIVER MATRIX LOGGER - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
 
 class EmptyTestResult(Exception):
     pass
@@ -112,8 +115,8 @@ def get_arguments() -> argparse.Namespace:
     return arguments
 
 
-def get_driver_type(gocql_driver_git: str) -> str:
-    return "scylla" if "scylladb" in get_driver_origin_remote(gocql_driver_git) else "datastax"
+def get_driver_type(csharp_driver_git: str) -> str:
+    return "scylla" if "scylladb" in get_driver_origin_remote(csharp_driver_git) else "datastax"
 
 
 if __name__ == "__main__":

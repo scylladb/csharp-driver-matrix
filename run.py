@@ -47,7 +47,7 @@ class Run:
             if tag <= target_version:
                 return target_version_folder / str(tag)
 
-        raise ValueError(f"Not found directory for gocql-driver version '{self.driver_version}'")
+        raise ValueError(f"Not found directory for datastax-csharp-driver version '{self.driver_version}'")
 
     @cached_property
     def ignore_tests(self) -> Dict[str, List[str]]:
@@ -107,7 +107,10 @@ class Run:
 
     @cached_property
     def junit_dir(self) -> Path:
-        return Path.cwd() / "test_results" / self.driver_version
+        dir_path = Path.cwd() / "test_results" / self.driver_version
+        if dir_path.exists():
+            shutil.rmtree(dir_path)
+        return dir_path
 
     @cached_property
     def junit_file(self) -> str:
@@ -148,9 +151,16 @@ class Run:
             simulacron_path = self.ensure_simulacron()
             for test in self._tests:
                 test_config = test_config_map[test]
+                logging.info("Add JUnit logger for tests %s.", test)
                 add_junit_logger_cmd = f'dotnet add {test_config.test_project} package JUnitXml.TestLogger'
-                logging.info("Running '%s' command to add JUnit logger to the '%s' tests", add_junit_logger_cmd, test)
+                logging.info("Running the command '%s'", add_junit_logger_cmd)
                 subprocess.call(f"{add_junit_logger_cmd}", shell=True, executable="/bin/bash",
+                                env=self.environment, cwd=self._csharp_driver_git)
+
+                logging.info("Restore dotnet dependencies to finish all lazy initialization before tests are started.")
+                restore_cmd = "find src/ -name '*.csproj' -exec dotnet restore {} \\;"
+                logging.info("Running the command '%s'", restore_cmd)
+                subprocess.call(f"{restore_cmd}", shell=True, executable="/bin/bash",
                                 env=self.environment, cwd=self._csharp_driver_git)
 
                 logging.info("Run tests for tag '%s'", test)
@@ -163,7 +173,7 @@ class Run:
                     f'SIMULACRON_PATH={simulacron_path} '
                     f'dotnet test {test_config.test_project} {test_config.test_command_args} {junit_logger} '
                     f'--filter "{ignore_filter}"')
-                logging.info("Running the test command '%s'", test_cmd)
+                logging.info("Running the command '%s'", test_cmd)
                 subprocess.call(f"{test_cmd}", shell=True, executable="/bin/bash",
                                 env=self.environment, cwd=self._csharp_driver_git)
             junit.save_after_analysis()
