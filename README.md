@@ -1,4 +1,4 @@
-# [WIP] C# Driver Matrix
+# C# Driver Matrix
 
 ## Prerequisites
 Ensure the following are installed before proceeding:
@@ -59,7 +59,7 @@ export CSHARP_DRIVER_DIR=`pwd`/../datastax-csharp-driver
 When making changes to `requirements.txt` or modifying the Docker image, it can be build and pushed to Docker Hub using
 the following steps:
 ```bash
-export MATRIX_DOCKER_IMAGE=scylladb/scylla-csharp-driver-matrix:python3.12-$(date +'%Y%m%d')
+export MATRIX_DOCKER_IMAGE=scylladb/csharp-driver-matrix:python3.12-$(date +'%Y%m%d')
 docker build ./scripts -t ${MATRIX_DOCKER_IMAGE}
 docker push ${MATRIX_DOCKER_IMAGE}
 echo "${MATRIX_DOCKER_IMAGE}" > scripts/image
