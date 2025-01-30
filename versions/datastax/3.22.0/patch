@@ -1,3 +1,16 @@
+diff --git a/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs b/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs
+index b3d8c586..389d188d 100644
+--- a/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs
+@@ -50,7 +50,7 @@ namespace Cassandra.IntegrationTests.Core
+                     }
+                 };
+ 
+-                if (TestClusterManager.CheckCassandraVersion(false, new Version(4, 0), Comparison.LessThan))
++                if (!TestClusterManager.IsScylla && TestClusterManager.CheckCassandraVersion(false, new Version(4, 0), Comparison.LessThan))
+                 {
+                     setupQueries.Add($"CREATE TABLE {TableCompactStorage} (key blob PRIMARY KEY, bar int, baz uuid)" +
+                                      $" WITH COMPACT STORAGE");
 diff --git a/src/Cassandra.IntegrationTests/Core/UdfTests.cs b/src/Cassandra.IntegrationTests/Core/UdfTests.cs
 index c14cb094..86470c7d 100644
 --- a/src/Cassandra.IntegrationTests/Core/UdfTests.cs
@@ -130,41 +143,28 @@ index 7cecd275..c6927928 100644
          }
 
 diff --git a/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs b/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
-index b5303b43..84480632 100644
+index b5303b43..7071921a 100644
 --- a/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
 +++ b/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
-@@ -117,16 +117,26 @@ namespace Cassandra.IntegrationTests.TestBase
+@@ -106,6 +106,18 @@ namespace Cassandra.IntegrationTests.TestBase
 
-             if (!TestClusterManager.IsDse && requiresDse)
-             {
-+                var currentEnv = TestClusterManager.IsScylla
-+                    ? $"Scylla {TestClusterManager.ScyllaVersion}"
-+                    : $"OSS Cassandra {TestClusterManager.CassandraVersion}";
-                 message = $"Test designed to run with DSE {TestDseVersion.GetComparisonText(comparison)} " +
--                          $"v{expectedVersion} (executing OSS {TestClusterManager.CassandraVersion})";
-+                          $"v{expectedVersion} (executing {currentEnv})";
-                 return false;
-             }
-
--            var executingVersion = TestClusterManager.IsDse ? TestClusterManager.DseVersion : TestClusterManager.CassandraVersion;
--            if (!TestDseVersion.VersionMatch(expectedVersion, executingVersion, comparison))
-+            var executingVersion = TestClusterManager.IsDse ? TestClusterManager.DseVersion :
-+                TestClusterManager.IsScylla ? TestClusterManager.ScyllaVersion :
-+                TestClusterManager.CassandraVersion;
+         public static bool VersionMatch(Version expectedVersion, bool requiresDse, bool requiresOss, Comparison comparison, out string message)
+         {
++            if (TestClusterManager.IsScylla && requiresDse)
++            {
++                message = "Test designed to run with DSE (executing Scylla)";
++                return false;
++            }
 +
-+            var execLabel = TestClusterManager.IsDse ? $"DSE {executingVersion}" :
-+                TestClusterManager.IsScylla ? $"Scylla {executingVersion}" :
-+                $"OSS Cassandra {executingVersion}";
++            if (TestClusterManager.IsScylla && requiresOss)
++            {
++                message = "Test designed to run with OSS Cassandra (executing Scylla)";
++                return true;
++            }
 +
-+            if (!VersionMatch(expectedVersion, executingVersion, comparison))
+             if (TestClusterManager.IsDse && requiresOss)
              {
--                message =
--                    $"Test designed to run with DSE {TestDseVersion.GetComparisonText(comparison)} v{expectedVersion} (executing {executingVersion})";
-+                var designedEnv = requiresDse ? "DSE" : (requiresOss ? "OSS Cassandra" : "OSS Cassandra or DSE");
-+                message = $"Test designed to run with {designedEnv} {GetComparisonText(comparison)} v{expectedVersion} (executing {execLabel})";
-                 return false;
-             }
-
+                 message = string.Format("Test designed to run with OSS {0} v{1} (executing DSE {2})", 
 diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs
 index dde5d86f..780e968c 100644
 --- a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs
@@ -278,7 +278,7 @@ index 087e60ef..3ee05464 100644
              _ccm.Populate(nodeLength, options.Dc2NodeLength, options.UseVNodes);
              _ccm.UpdateConfig(options.CassandraYaml);
 diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs
-index 662a3cfd..84d99b02 100644
+index 662a3cfd..3d1c8421 100644
 --- a/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs
 +++ b/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs
 @@ -28,6 +28,11 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
@@ -293,32 +293,13 @@ index 662a3cfd..84d99b02 100644
 
          private static readonly Version Version2Dot0 = new Version(2, 0);
          private static readonly Version Version2Dot1 = new Version(2, 1);
-@@ -114,6 +119,35 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+@@ -114,6 +119,16 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
              get { return Environment.GetEnvironmentVariable("CASSANDRA_VERSION") ?? "3.11.2"; }
          }
 
 +        public static string ScyllaVersionString
 +        {
 +            get { return Environment.GetEnvironmentVariable("SCYLLA_VERSION"); }
-+        }
-+
-+        public static Version ScyllaVersion
-+        {
-+            get
-+            {
-+                if (!IsScylla)
-+                {
-+                    return null;
-+                }
-+
-+                var rawVersion = ScyllaVersionString;
-+                if (rawVersion.Contains(":"))
-+                {
-+                    rawVersion = rawVersion.Split(':')[1];
-+                }
-+
-+                return new Version(rawVersion);
-+            }
 +        }
 +
 +        public static bool IsScylla
@@ -329,7 +310,7 @@ index 662a3cfd..84d99b02 100644
          public static bool IsDse
          {
              get { return Environment.GetEnvironmentVariable("DSE_VERSION") != null; }
-@@ -241,11 +275,12 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+@@ -241,11 +256,12 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
              options = options ?? new TestClusterOptions();
              var testCluster = new CcmCluster(
                  TestUtils.GetTestClusterNameBasedOnRandomString(),
