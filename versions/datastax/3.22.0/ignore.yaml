@@ -31,6 +31,7 @@ tests:
 
     # COMPACT STORAGE is deprecated in Scylla (https://github.com/scylladb/scylladb/issues/12263)
     - SimpleStatement_With_No_Compact_Enabled_Should_Reveal_Non_Schema_Columns
+    - SimpleStatement_With_No_Compact_Disabled_Should_Not_Reveal_Non_Schema_Columns
 
     # dclocal_read_repair_chance and read_repair_chance are removed in Scylla 6.1 (https://github.com/scylladb/scylladb/pull/18087)
     - ColumnClusteringOrderReversedTest
@@ -59,4 +60,32 @@ tests:
 
     # Cassandra only; Scylla does not support transient replication
     - TokenAware_TransientReplication_NoHopsAndOnlyFullReplicas
+
+    # UDF: lua doesn't support syntax used in the test
+    - GetFunction_Should_Return_Most_Up_To_Date_Metadata_Via_Events
+
+    # The tests are already marked as skipped in the driver code. But this doesn't prevent the test suite setup from running.
+    # Marking the tests as ignored here to save time on their setup/teardown execution.
+    - LargeDataTests
+    - MetadataTests
+    - MultiThreadingTests
+    - PoolTests
+    - PrepareLongTests
+    - SpeculativeExecutionLongTests
+    - StressTests
+    - TransitionalAuthenticationTests
+    - ProxyAuthenticationTests
+    - SessionDseAuthenticationTests
+    - CloudIntegrationTests
+    - CoreGraphTests
+    - GraphTests
+    - InsightsIntegrationTests
+    - DateRangeTests
+    - FoundBugTests
+    - GeometryTests
+    - LoadBalancingPolicyTests
+    - ConsistencyTests
+    - LoadBalancingPolicyTests
+    - ReconnectionPolicyTests
+    - RetryPolicyTests
   flaky:
