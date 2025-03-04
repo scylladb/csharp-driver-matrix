@@ -170,6 +170,7 @@ class Run:
                 ignore_filter = f"({ignore_tests})" if ignore_tests else ""
 
                 test_cmd = (
+                    'SCYLLA_EXT_OPTS="--smp 2 --memory 2G" '
                     f'SIMULACRON_PATH={simulacron_path} '
                     f'dotnet test {test_config.test_project} {test_config.test_command_args} {junit_logger} '
                     f'--filter "{ignore_filter}"')
