@@ -64,28 +64,4 @@ tests:
     # UDF: lua doesn't support syntax used in the test
     - GetFunction_Should_Return_Most_Up_To_Date_Metadata_Via_Events
 
-    # The tests are already marked as skipped in the driver code. But this doesn't prevent the test suite setup from running.
-    # Marking the tests as ignored here to save time on their setup/teardown execution.
-    - LargeDataTests
-    - MetadataTests
-    - MultiThreadingTests
-    - PoolTests
-    - PrepareLongTests
-    - SpeculativeExecutionLongTests
-    - StressTests
-    - TransitionalAuthenticationTests
-    - ProxyAuthenticationTests
-    - SessionDseAuthenticationTests
-    - CloudIntegrationTests
-    - CoreGraphTests
-    - GraphTests
-    - InsightsIntegrationTests
-    - DateRangeTests
-    - FoundBugTests
-    - GeometryTests
-    - LoadBalancingPolicyTests
-    - ConsistencyTests
-    - LoadBalancingPolicyTests
-    - ReconnectionPolicyTests
-    - RetryPolicyTests
   flaky:
