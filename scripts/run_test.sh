@@ -56,7 +56,7 @@ for gid in $(id -G); do
     group_args+=(--group-add "$gid")
 done
 
-docker_cmd="docker run --detach=true \
+docker_cmd="docker run --init --detach=true \
     ${WORKSPACE_MNT} \
     ${SCYLLA_OPTIONS} \
     ${DOCKER_CONFIG_MNT} \
