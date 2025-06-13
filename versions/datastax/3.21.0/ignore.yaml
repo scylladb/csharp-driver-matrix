@@ -1,0 +1,67 @@
+# Last verified state on Dec XX, 2024 by Dmytro Kruglov
+tests:
+  ignore:
+    # unrecognised option '-Dcassandra.custom_query_handler_class'
+    - ClientWarningsTests
+    - CustomPayloadTests
+
+    # CCM with SSL is not configured
+    - Connect_With_Ssl_Test
+
+    # ccm: no such option: --skip-wait-other-notice
+    - Should_UpdateHosts_When_HostIpChanges
+
+    # error: unrecognised option '-Dcassandra.override_decommission'
+    - Should_UseNewHostInQueryPlans_When_HostIsDecommissionedAndJoinsAgain
+    - Should_RemoveNodeMetricsAndDisposeMetricsContext_When_HostIsRemoved
+
+    # Cassandra only (C* virtual tables)
+    - Virtual_Keyspaces_Are_Included
+    - Virtual_Table_Metadata_Test
+
+    # unrecognised option '-Dcassandra.superuser_setup_delay_ms'
+    - SessionAuthenticationTests
+
+    # Cassandra only; no support for DynamicCompositeType in Scylla (https://github.com/scylladb/scylladb/issues/1677)
+    - TypeSerializersTests
+    - Custom_MetadataTest
+
+    # Cassandra only; no support for vector searched in Scylla
+    - LinqWhere_WithVectors
+
+    # COMPACT STORAGE is deprecated in Scylla (https://github.com/scylladb/scylladb/issues/12263)
+    - SimpleStatement_With_No_Compact_Enabled_Should_Reveal_Non_Schema_Columns
+    - SimpleStatement_With_No_Compact_Disabled_Should_Not_Reveal_Non_Schema_Columns
+
+    # dclocal_read_repair_chance and read_repair_chance are removed in Scylla 6.1 (https://github.com/scylladb/scylladb/pull/18087)
+    - ColumnClusteringOrderReversedTest
+    - GetMaterializedView_Should_Refresh_View_Metadata_Via_Events
+    - MaterializedView_Base_Table_Column_Addition
+    - MultipleSecondaryIndexTest
+    - RaiseErrorOnInvalidMultipleSecondaryIndexTest
+    - TableMetadataAllTypesTest
+    - TableMetadataClusteringOrderTest
+    - TableMetadataCollectionsSecondaryIndexTest
+    - TableMetadataCompositePartitionKeyTest
+    - TupleMetadataTest
+    - Udt_Case_Sensitive_Metadata_Test
+    - UdtMetadataTest
+    - Should_Retrieve_Table_Metadata
+    - CreateTable_With_Frozen_Key
+    - CreateTable_With_Frozen_Udt
+    - CreateTable_With_Frozen_Value
+
+    # No 'cql-messages' and 'cql-requests' metrics in Scylla
+    - Should_AllMetricsHaveValidValues_When_AllNodesAreUp
+
+    # Cassandra only; Scylla performs strict validation of the number of bind variables
+    - SimpleStatement_Dictionary_Parameters_CaseInsensitivity_ExcessOfParams
+    - SimpleStatement_Dictionary_Parameters_CaseInsensitivity_NoOverload
+
+    # Cassandra only; Scylla does not support transient replication
+    - TokenAware_TransientReplication_NoHopsAndOnlyFullReplicas
+
+    # UDF: lua doesn't support syntax used in the test
+    - GetFunction_Should_Return_Most_Up_To_Date_Metadata_Via_Events
+
+  flaky:
