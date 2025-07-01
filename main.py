@@ -89,11 +89,11 @@ def extract_n_latest_repo_tags(repo_directory: str, latest_tags_size: int = 2) -
 
 
 def get_arguments() -> argparse.Namespace:
-    versions = ["3.22.0", "3.21.0"]
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("csharp_driver_git", help="Folder with Git repository of C# driver")
-    parser.add_argument("--versions", default=versions, type=str,
-                        help=f"Comma-separated C# driver versions to test, or number of latest tags. Default={','.join(versions)}")
+    parser.add_argument("--versions", default="2", type=str,
+                        help=f"Comma-separated C# driver versions to test, or number of latest tags.\n"
+                             f"Default=2 - the last two tags.\n")
     parser.add_argument("--tests", default="integration", choices=["integration"], nargs="*", type=str,
                         help="Tests to run (default: integration)")
     parser.add_argument("--scylla-version", default=os.environ.get("SCYLLA_VERSION", None),
