@@ -1,0 +1,457 @@
+diff --git a/src/Cassandra.IntegrationTests/Core/ClusterTests.cs b/src/Cassandra.IntegrationTests/Core/ClusterTests.cs
+index e972fb34..656a7a95 100644
+--- a/src/Cassandra.IntegrationTests/Core/ClusterTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/ClusterTests.cs
+@@ -190,7 +190,7 @@ namespace Cassandra.IntegrationTests.Core
+         [Category(TestCategory.RealClusterLong)]
+         public async Task Should_Remove_Decommissioned_Node()
+         {
+-            const int numberOfNodes = 2;
++            const int numberOfNodes = 3;
+             _realCluster = TestClusterManager.CreateNew(numberOfNodes);
+             var cluster = ClusterBuilder().AddContactPoint(_realCluster.InitialContactPoint).Build();
+ 
+@@ -210,10 +210,10 @@ namespace Cassandra.IntegrationTests.Core
+                 string decommisionedNode = null;
+                 TestHelper.RetryAssert(() =>
+                 {
+-                    decommisionedNode = _realCluster.ClusterIpPrefix + 2;
++                    decommisionedNode = _realCluster.ClusterIpPrefix + 3;
+                     Assert.False(TestUtils.IsNodeReachable(IPAddress.Parse(decommisionedNode)));
+                         //New node should be part of the metadata
+-                        Assert.AreEqual(1, cluster.AllHosts().Count);
++                        Assert.AreEqual(2, cluster.AllHosts().Count);
+                 }, 100, 100);
+                 var queried = false;
+                 for (var i = 0; i < 10; i++)
+diff --git a/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs b/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs
+index b3d8c586..c561c611 100644
+--- a/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs
+@@ -50,7 +50,7 @@ namespace Cassandra.IntegrationTests.Core
+                     }
+                 };
+ 
+-                if (TestClusterManager.CheckCassandraVersion(false, new Version(4, 0), Comparison.LessThan))
++                if (!TestClusterManager.IsScylla && TestClusterManager.CheckCassandraVersion(false, new Version(4, 0), Comparison.LessThan))
+                 {
+                     setupQueries.Add($"CREATE TABLE {TableCompactStorage} (key blob PRIMARY KEY, bar int, baz uuid)" +
+                                      $" WITH COMPACT STORAGE");
+diff --git a/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs b/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs
+index 659ecf4d..9c22f983 100644
+--- a/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs
+@@ -34,6 +34,35 @@ namespace Cassandra.IntegrationTests.Core
+     {
+         private readonly string _tableName = "tbl" + Guid.NewGuid().ToString("N").ToLower();
+         private const string AllTypesTableName = "all_types_table_prepared";
++        private readonly List<ICluster> _privateClusterInstances = new List<ICluster>();
++
++        protected override ICluster GetNewTemporaryCluster(Action<Builder> build = null)
++        {
++            var builder = ClusterBuilder()
++                          .AddContactPoint(TestCluster.InitialContactPoint)
++                          .WithSocketOptions(new SocketOptions().SetConnectTimeoutMillis(30000).SetReadTimeoutMillis(22000));
++            build?.Invoke(builder);
++            var cluster = builder.Build();
++            _privateClusterInstances.Add(cluster);
++            return cluster;
++        }
++
++        public override void TearDown()
++        {
++            foreach (var c in _privateClusterInstances)
++            {
++                try
++                {
++                    c.Dispose();
++                }
++                catch
++                {
++                    // ignored
++                }
++            }
++            _privateClusterInstances.Clear();
++            base.TearDown();
++        }
+
+         public PreparedStatementsTests() : base(3)
+         {
+@@ -163,8 +192,8 @@ namespace Cassandra.IntegrationTests.Core
+         {
+             byte[] originalResultMetadataId = null;
+             // Use 2 different clusters as the prepared statement cache should be different
+-            using (var cluster1 = ClusterBuilder().AddContactPoint(TestClusterManager.InitialContactPoint).Build())
+-            using (var cluster2 = ClusterBuilder().AddContactPoint(TestClusterManager.InitialContactPoint).Build())
++            using (var cluster1 = GetNewTemporaryCluster())
++            using (var cluster2 = GetNewTemporaryCluster())
+             {
+                 var session1 = cluster1.Connect();
+                 var session2 = cluster2.Connect();
+@@ -906,13 +935,12 @@ namespace Cassandra.IntegrationTests.Core
+
+         private void TestKeyspaceInPrepareNotSupported(bool specifyProtocol)
+         {
+-            var builder = ClusterBuilder().AddContactPoint(TestClusterManager.InitialContactPoint);
+-            if (specifyProtocol)
+-            {
+-                builder.WithMaxProtocolVersion(ProtocolVersion.V4);
+-            }
+-
+-            using (var cluster = builder.Build())
++            using (var cluster = GetNewTemporaryCluster(builder => {
++                       if (specifyProtocol)
++                       {
++                           builder.WithMaxProtocolVersion(ProtocolVersion.V4);
++                       }
++                   }))
+             {
+                 var session = cluster.Connect(KeyspaceName);
+
+@@ -1114,7 +1142,7 @@ namespace Cassandra.IntegrationTests.Core
+         [TestCassandraVersion(4, 0, Comparison.LessThan)]
+         public void BatchStatement_With_Keyspace_Defined_On_Lower_Protocol_Versions()
+         {
+-            using (var cluster = ClusterBuilder().AddContactPoint(TestClusterManager.InitialContactPoint).Build())
++            using (var cluster = GetNewTemporaryCluster())
+             {
+                 var session = cluster.Connect("system");
+                 var query = new SimpleStatement(
+@@ -1151,9 +1179,7 @@ namespace Cassandra.IntegrationTests.Core
+
+             var tableName = TestUtils.GetUniqueTableName();
+             using (var cluster = 
+-                ClusterBuilder()
+-                       .AddContactPoint(TestClusterManager.InitialContactPoint)
+-                       .WithQueryTimeout(500000).Build())
++                   GetNewTemporaryCluster(builder => builder.WithQueryTimeout(500000)))
+             {
+                 var session = cluster.Connect();
+                 session.Execute($"CREATE TABLE {KeyspaceName}.{tableName} (a int PRIMARY KEY, b int, c int)");
+diff --git a/src/Cassandra.IntegrationTests/Core/SchemaAgreementTests.cs b/src/Cassandra.IntegrationTests/Core/SchemaAgreementTests.cs
+index 6e4e736f..ec89a113 100644
+--- a/src/Cassandra.IntegrationTests/Core/SchemaAgreementTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/SchemaAgreementTests.cs
+@@ -29,7 +29,7 @@ namespace Cassandra.IntegrationTests.Core
+     {
+         private volatile bool _paused = false;
+ 
+-        public SchemaAgreementTests() : base(2, false)
++        public SchemaAgreementTests() : base(3, false)
+         {
+         }
+
+diff --git a/src/Cassandra.IntegrationTests/Core/UdfTests.cs b/src/Cassandra.IntegrationTests/Core/UdfTests.cs
+index c14cb094..86470c7d 100644
+--- a/src/Cassandra.IntegrationTests/Core/UdfTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/UdfTests.cs
+@@ -51,22 +51,26 @@ namespace Cassandra.IntegrationTests.Core
+                 return;
+             }
+             _testCluster = TestClusterManager.GetTestCluster(1, 0, false, DefaultMaxClusterCreateRetries, false, false);
+-            var cassandraYaml = "enable_user_defined_functions: true";
++            var userDefinedFunctionsConfig = "enable_user_defined_functions: true";
+             if (TestClusterManager.CheckCassandraVersion(true, Version.Parse("5.0"), Comparison.GreaterThanOrEqualsTo))
+             {
+-                cassandraYaml = "user_defined_functions_enabled: true";
++                userDefinedFunctionsConfig = "user_defined_functions_enabled: true";
+             }
+-            _testCluster.UpdateConfig(cassandraYaml);
++            var experimentalFeaturesConfig = TestClusterManager.IsScylla
++                ? "experimental_features:[udf]"
++                : null;
++            _testCluster.UpdateConfig(userDefinedFunctionsConfig, experimentalFeaturesConfig);
+             _testCluster.Start(1);
+             using (var cluster = ClusterBuilder().AddContactPoint(_testCluster.InitialContactPoint).Build())
+             {
++                var udfLanguage = TestClusterManager.IsScylla ? "lua" : "java";
+                 var session = cluster.Connect();
+                 var queries = new List<string>
+                 {
+                     "CREATE KEYSPACE  ks_udf WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1}",
+-                    "CREATE FUNCTION  ks_udf.return_one() RETURNS NULL ON NULL INPUT RETURNS int LANGUAGE java AS 'return 1;'",
+-                    "CREATE FUNCTION  ks_udf.plus(s int, v int) RETURNS NULL ON NULL INPUT RETURNS int LANGUAGE java AS 'return s+v;'",
+-                    "CREATE FUNCTION  ks_udf.plus(s bigint, v bigint) RETURNS NULL ON NULL INPUT RETURNS bigint LANGUAGE java AS 'return s+v;'",
++                    $"CREATE FUNCTION  ks_udf.return_one() RETURNS NULL ON NULL INPUT RETURNS int LANGUAGE {udfLanguage} AS 'return 1;'",
++                    $"CREATE FUNCTION  ks_udf.plus(s int, v int) RETURNS NULL ON NULL INPUT RETURNS int LANGUAGE {udfLanguage} AS 'return s+v;'",
++                    $"CREATE FUNCTION  ks_udf.plus(s bigint, v bigint) RETURNS NULL ON NULL INPUT RETURNS bigint LANGUAGE {udfLanguage} AS 'return s+v;'",
+                     "CREATE AGGREGATE ks_udf.sum(int) SFUNC plus STYPE int INITCOND 1",
+                     "CREATE AGGREGATE ks_udf.sum(bigint) SFUNC plus STYPE bigint INITCOND 2"
+                 };
+@@ -74,16 +78,16 @@ namespace Cassandra.IntegrationTests.Core
+                 if (TestClusterManager.CheckDseVersion(new Version(6, 0), Comparison.GreaterThanOrEqualsTo))
+                 {
+                     queries.Add("CREATE FUNCTION ks_udf.deterministic(dividend int, divisor int) " +
+-                                "CALLED ON NULL INPUT RETURNS int DETERMINISTIC LANGUAGE java AS " +
++                                $"CALLED ON NULL INPUT RETURNS int DETERMINISTIC LANGUAGE {udfLanguage} AS " +
+                                 "'return dividend / divisor;'");
+                     queries.Add("CREATE FUNCTION ks_udf.monotonic(dividend int, divisor int) " +
+-                                "CALLED ON NULL INPUT RETURNS int MONOTONIC LANGUAGE java AS " +
++                                $"CALLED ON NULL INPUT RETURNS int MONOTONIC LANGUAGE {udfLanguage} AS " +
+                                 "'return dividend / divisor;'");
+                     queries.Add("CREATE FUNCTION ks_udf.md(dividend int, divisor int) " +
+-                                "CALLED ON NULL INPUT RETURNS int DETERMINISTIC MONOTONIC LANGUAGE java AS " +
++                                $"CALLED ON NULL INPUT RETURNS int DETERMINISTIC MONOTONIC LANGUAGE {udfLanguage} AS " +
+                                 "'return dividend / divisor;'");
+                     queries.Add("CREATE FUNCTION ks_udf.monotonic_on(dividend int, divisor int) " +
+-                                "CALLED ON NULL INPUT RETURNS int MONOTONIC ON dividend LANGUAGE java AS " +
++                                $"CALLED ON NULL INPUT RETURNS int MONOTONIC ON dividend LANGUAGE {udfLanguage} AS " +
+                                 "'return dividend / divisor;'");
+                     queries.Add("CREATE AGGREGATE ks_udf.deta(int) SFUNC plus STYPE int INITCOND 0 DETERMINISTIC;");
+                 }
+@@ -136,7 +140,7 @@ namespace Cassandra.IntegrationTests.Core
+             Assert.AreEqual(ColumnTypeCode.Int, func.ArgumentTypes[0].TypeCode);
+             Assert.AreEqual(ColumnTypeCode.Int, func.ArgumentTypes[1].TypeCode);
+             Assert.AreEqual("return s+v;", func.Body);
+-            Assert.AreEqual("java", func.Language);
++            Assert.AreEqual(TestClusterManager.IsScylla ? "lua" : "java", func.Language);
+             Assert.AreEqual(ColumnTypeCode.Int, func.ReturnType.TypeCode);
+             Assert.AreEqual(false, func.CalledOnNullInput);
+         }
+@@ -154,7 +158,7 @@ namespace Cassandra.IntegrationTests.Core
+             Assert.AreEqual(0, func.ArgumentTypes.Length);
+             Assert.AreEqual(0, func.Signature.Length);
+             Assert.AreEqual("return 1;", func.Body);
+-            Assert.AreEqual("java", func.Language);
++            Assert.AreEqual(TestClusterManager.IsScylla ? "lua" : "java", func.Language);
+             Assert.AreEqual(ColumnTypeCode.Int, func.ReturnType.TypeCode);
+             Assert.AreEqual(false, func.CalledOnNullInput);
+             Assert.False(func.Monotonic);
+@@ -206,7 +210,8 @@ namespace Cassandra.IntegrationTests.Core
+             var session = cluster.Connect("ks_udf");
+             var cluster2 = GetCluster(metadataSync);
+             var session2 = cluster.Connect("ks_udf");
+-            session.Execute("CREATE OR REPLACE FUNCTION stringify(i int) RETURNS NULL ON NULL INPUT RETURNS text LANGUAGE java AS 'return Integer.toString(i);'");
++            var udfLanguage = TestClusterManager.IsScylla ? "lua" : "java";
++            session.Execute($"CREATE OR REPLACE FUNCTION stringify(i int) RETURNS NULL ON NULL INPUT RETURNS text LANGUAGE {udfLanguage} AS 'return Integer.toString(i);'");
+             cluster2.RefreshSchema("ks_udf");
+             Task.Delay(500).GetAwaiter().GetResult(); // wait for events to be processed
+             var _ = cluster2.Metadata.KeyspacesSnapshot // cache 
+@@ -218,7 +223,7 @@ namespace Cassandra.IntegrationTests.Core
+             var func = cluster.Metadata.GetFunction("ks_udf", "stringify", new[] { "int" });
+             Assert.NotNull(func);
+             Assert.AreEqual("return Integer.toString(i);", func.Body);
+-            session.Execute("CREATE OR REPLACE FUNCTION stringify(i int) RETURNS NULL ON NULL INPUT RETURNS text LANGUAGE java AS 'return Integer.toString(i) + \"hello\";'");
++            session.Execute($"CREATE OR REPLACE FUNCTION stringify(i int) RETURNS NULL ON NULL INPUT RETURNS text LANGUAGE {udfLanguage} AS 'return Integer.toString(i) + \"hello\";'");
+             if (metadataSync)
+             {
+                 TestHelper.RetryAssert(() =>
+diff --git a/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs b/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs
+index 7cecd275..c6927928 100644
+--- a/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs
++++ b/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs
+@@ -351,11 +351,13 @@ namespace Cassandra.IntegrationTests.Mapping.Tests
+             // Attempt to select from Camel Case partition key
+             string cqlCamelCasePartitionKey = "SELECT * from " + typeof (lowercaseclassnamepkcamelcase).Name + " where \"SomePartitionKey\" = 'doesntmatter'";
+             var ex = Assert.Throws<InvalidQueryException>(() => _session.Execute(cqlCamelCasePartitionKey));
+-            var expectedErrMsg = "Undefined name SomePartitionKey in where clause";
++            var expectedMessageCassandra = "Undefined name SomePartitionKey in where clause";
++            var expectedMessageScylla = "Unrecognized name SomePartitionKey";
+             if (TestClusterManager.CheckCassandraVersion(false, Version.Parse("3.10"), Comparison.GreaterThanOrEqualsTo))
+             {
+-                expectedErrMsg = "Undefined column name \"SomePartitionKey\"";
++                expectedMessageCassandra = "Undefined column name \"SomePartitionKey\"";
+             }
++            var expectedErrMsg = TestClusterManager.IsScylla ? expectedMessageScylla : expectedMessageCassandra;
+             StringAssert.Contains(expectedErrMsg, ex.Message);
+
+             // Validate that select on lower case key does not fail
+@@ -379,11 +381,13 @@ namespace Cassandra.IntegrationTests.Mapping.Tests
+
+             // Validate expected exception
+             var ex = Assert.Throws<InvalidQueryException>(() => cqlClient.Insert(pocoWithCustomAttributes));
+-            var expectedMessage = "Unknown identifier someotherstring";
++            var expectedMessageCassandra = "Unknown identifier someotherstring";
++            var expectedMessageScylla = "Unknown identifier someotherstring";
+             if (TestClusterManager.CheckCassandraVersion(false, Version.Parse("3.10"), Comparison.GreaterThanOrEqualsTo))
+             {
+-                expectedMessage = "Undefined column name someotherstring";
++                expectedMessageCassandra = "Undefined column name someotherstring";
+             }
++            var expectedMessage = TestClusterManager.IsScylla ? expectedMessageScylla : expectedMessageCassandra;
+             StringAssert.Contains(expectedMessage, ex.Message);
+         }
+
+diff --git a/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs b/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
+index b5303b43..7071921a 100644
+--- a/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
++++ b/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
+@@ -106,6 +106,18 @@ namespace Cassandra.IntegrationTests.TestBase
+
+         public static bool VersionMatch(Version expectedVersion, bool requiresDse, bool requiresOss, Comparison comparison, out string message)
+         {
++            if (TestClusterManager.IsScylla && requiresDse)
++            {
++                message = "Test designed to run with DSE (executing Scylla)";
++                return false;
++            }
++
++            if (TestClusterManager.IsScylla && requiresOss)
++            {
++                message = "Test designed to run with OSS Cassandra (executing Scylla)";
++                return true;
++            }
++
+             if (TestClusterManager.IsDse && requiresOss)
+             {
+                 message = string.Format("Test designed to run with OSS {0} v{1} (executing DSE {2})", 
+diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs
+index dde5d86f..780e968c 100644
+--- a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs
++++ b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs
+@@ -29,18 +29,21 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+         public DirectoryInfo CcmDir { get; private set; }
+         public string Name { get; private set; }
+         public string Version { get; private set; }
+-        public string IpPrefix { get; private set; }
++        public string ScyllaVersion { get; private set; }
++        public string IdPrefix { get; private set; }
++        public string IpPrefix => $"127.0.{IdPrefix}.";
+         public ICcmProcessExecuter CcmProcessExecuter { get; set; }
+         private readonly string _dseInstallPath;
+
+-        public CcmBridge(string name, string ipPrefix, string dsePath, string version, ICcmProcessExecuter executor)
++        public CcmBridge(string name, string idPrefix, string dsePath, string version, string scyllaVersion, ICcmProcessExecuter executor)
+         {
+             Name = name;
+-            IpPrefix = ipPrefix;
++            IdPrefix = idPrefix;
+             CcmDir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
+             CcmProcessExecuter = executor;
+             _dseInstallPath = dsePath;
+             Version = version;
++            ScyllaVersion = scyllaVersion;
+         }
+
+         public void Dispose()
+@@ -64,18 +67,14 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+                 sslParams = "--ssl " + sslPath;
+             }
+
+-            if (string.IsNullOrEmpty(_dseInstallPath))
++            if (!string.IsNullOrEmpty(ScyllaVersion))
+             {
+-                if (TestClusterManager.IsDse)
+-                {
+-                    ExecuteCcm(string.Format(
+-                        "create {0} --dse -v {1} {2}", Name, Version, sslParams));
+-                }
+-                else
+-                {
+-                    ExecuteCcm(string.Format(
+-                        "create {0} -v {1} {2}", Name, Version, sslParams));
+-                }
++                ExecuteCcm($"create {Name} --scylla -v {ScyllaVersion} {sslParams}");
++            }
++            else if (string.IsNullOrEmpty(_dseInstallPath))
++            {
++                var dseFlag = TestClusterManager.IsDse ? "--dse" : string.Empty;
++                ExecuteCcm($"create {Name} {dseFlag} -v {Version} {sslParams}");
+             }
+             else
+             {
+@@ -267,6 +266,10 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+             {
+                 cmd += " --dse";
+             }
++            else if (TestClusterManager.IsScylla)
++            {
++               cmd += " --scylla";
++            }
+
+             var output = ExecuteCcm(string.Format(cmd, n, IpPrefix, n, 7000 + 100 * n, dc != null ? "-d " + dc : null));
+
+diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs
+index 087e60ef..3ee05464 100644
+--- a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs
++++ b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs
+@@ -25,33 +25,37 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+     {
+         public string Name { get; set; }
+         public string Version { get; set; }
++        public string ScyllaVersion { get; set; }
+         public Builder Builder { get; set; }
+         public Cluster Cluster { get; set; }
+         public ISession Session { get; set; }
+         public string InitialContactPoint { get; set; }
+         public string ClusterIpPrefix { get; set; }
++        public string IdPrefix { get; private set; }
+         public string DsePath { get; set; }
+         public string DefaultKeyspace { get; set; }
+         private readonly ICcmProcessExecuter _executor;
+         private CcmBridge _ccm;
+         private int _nodeLength;
+
+-        public CcmCluster(string name, string clusterIpPrefix, string dsePath, ICcmProcessExecuter executor, string defaultKeyspace, string version)
++        public CcmCluster(string name, string idPrefix, string dsePath, ICcmProcessExecuter executor, string defaultKeyspace, string version, string scyllaVersion = null)
+         {
+             _executor = executor;
+             Name = name;
+             DefaultKeyspace = defaultKeyspace;
+-            ClusterIpPrefix = clusterIpPrefix;
+-            DsePath = dsePath;
++            IdPrefix = idPrefix;
++            ClusterIpPrefix = $"127.0.{IdPrefix}.";
+             InitialContactPoint = ClusterIpPrefix + "1";
++            DsePath = dsePath;
+             Version = version;
++            ScyllaVersion = scyllaVersion;
+         }
+
+         public void Create(int nodeLength, TestClusterOptions options = null)
+         {
+             _nodeLength = nodeLength;
+             options = options ?? TestClusterOptions.Default;
+-            _ccm = new CcmBridge(Name, ClusterIpPrefix, DsePath, Version, _executor);
++            _ccm = new CcmBridge(Name, IdPrefix, DsePath, Version, ScyllaVersion, _executor);
+             _ccm.Create(options.UseSsl);
+             _ccm.Populate(nodeLength, options.Dc2NodeLength, options.UseVNodes);
+             _ccm.UpdateConfig(options.CassandraYaml);
+diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs
+index 662a3cfd..3d1c8421 100644
+--- a/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs
++++ b/src/Cassandra.IntegrationTests/TestClusterManagement/TestClusterManager.cs
+@@ -28,6 +28,11 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+     {
+         public const string DefaultKeyspaceName = "test_cluster_keyspace";
+         private static ICcmProcessExecuter _executor;
++        private static int _idPrefixCounter = 0;
++        private static string GetUniqueIdPrefix()
++        {
++            return (_idPrefixCounter++).ToString();
++        }
+
+         private static readonly Version Version2Dot0 = new Version(2, 0);
+         private static readonly Version Version2Dot1 = new Version(2, 1);
+@@ -114,6 +119,16 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+             get { return Environment.GetEnvironmentVariable("CASSANDRA_VERSION") ?? "3.11.2"; }
+         }
+
++        public static string ScyllaVersionString
++        {
++            get { return Environment.GetEnvironmentVariable("SCYLLA_VERSION"); }
++        }
++
++        public static bool IsScylla
++        {
++            get { return !string.IsNullOrEmpty(ScyllaVersionString); }
++        }
++
+         public static bool IsDse
+         {
+             get { return Environment.GetEnvironmentVariable("DSE_VERSION") != null; }
+@@ -241,11 +256,12 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
+             options = options ?? new TestClusterOptions();
+             var testCluster = new CcmCluster(
+                 TestUtils.GetTestClusterNameBasedOnRandomString(),
+-                IpPrefix,
++                GetUniqueIdPrefix(),
+                 DsePath,
+                 Executor,
+                 DefaultKeyspaceName,
+-                IsDse ? DseVersionString : CassandraVersionString);
++                IsDse ? DseVersionString : CassandraVersionString,
++                ScyllaVersionString);
+             testCluster.Create(nodeLength, options);
+             if (startCluster)
+             {
