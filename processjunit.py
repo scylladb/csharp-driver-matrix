@@ -32,8 +32,8 @@ class ProcessJUnit:
         def filter_out_ignored_failed_test() -> int:
             failured_tests = testcase_keys[key]
             flaky_tests = self.ignore_set.get('flaky', []) if isinstance(self.ignore_set, dict) else []
-            for test in testsuite_element.iter("failure"):
-                if test.attrib["message"].replace("failed ", "") in flaky_tests:
+            for testcase in testsuite_element.iter("testcase"):
+                if list(testcase.iter("failure")) and testcase.attrib.get("name") in flaky_tests:
                     failured_tests -= 1
                     testcase_keys["ignored_on_failure"] += 1
             return failured_tests
@@ -103,9 +103,9 @@ class ProcessJUnit:
                     element_test_details = list(element.iter())[1]
                     tag_name = element_test_details.tag
                     if (element_test_details.tag == "failure" and
-                            element_test_details.attrib["message"].replace("failed ", "") in flaky_tests):
-                        logging.info("Failed test is ignored for %s driver version. Failure message: %s",
-                                     self.tag, element_test_details.text)
+                            element.attrib.get("name") in flaky_tests):
+                        logging.info("Flaky test '%s' failed for %s driver version - marking as ignored. Failure message: %s",
+                                     element.attrib.get("name"), self.tag, element_test_details.text)
                         # Change tag name to prevent test failure
                         tag_name = "ignored_on_failure"
                         # Decrease amount of failed tests that its failure is expected for the rust driver version
