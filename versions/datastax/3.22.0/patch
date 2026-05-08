@@ -1,3 +1,97 @@
+diff --git a/examples/OpenTelemetry/DistributedTracing/Api/Api.csproj b/examples/OpenTelemetry/DistributedTracing/Api/Api.csproj
+index 4235055d..458f7bd0 100644
+--- a/examples/OpenTelemetry/DistributedTracing/Api/Api.csproj
++++ b/examples/OpenTelemetry/DistributedTracing/Api/Api.csproj
+@@ -7,9 +7,9 @@
+   </PropertyGroup>
+ 
+   <ItemGroup>
+-    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.7.0" />
+-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.9.0" />
+-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.7.0" />
++    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.15.3" />
++    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
++    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0" />
+     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+   </ItemGroup>
+diff --git a/examples/OpenTelemetry/DistributedTracing/Client/Client.csproj b/examples/OpenTelemetry/DistributedTracing/Client/Client.csproj
+index b70ffd5c..ca67b808 100644
+--- a/examples/OpenTelemetry/DistributedTracing/Client/Client.csproj
++++ b/examples/OpenTelemetry/DistributedTracing/Client/Client.csproj
+@@ -8,8 +8,8 @@
+   </PropertyGroup>
+ 
+   <ItemGroup>
+-    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.9.0" />
+-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.9.0" />
++    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.15.3" />
++    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+   </ItemGroup>
+ 
+ </Project>
+diff --git a/examples/OpenTelemetry/Exporter/ConsoleExporter/ConsoleExporter.csproj b/examples/OpenTelemetry/Exporter/ConsoleExporter/ConsoleExporter.csproj
+index 07c63c1c..48dfbf23 100644
+--- a/examples/OpenTelemetry/Exporter/ConsoleExporter/ConsoleExporter.csproj
++++ b/examples/OpenTelemetry/Exporter/ConsoleExporter/ConsoleExporter.csproj
+@@ -8,7 +8,7 @@
+   </PropertyGroup>
+ 
+   <ItemGroup>
+-    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.8.0" />
++    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.15.3" />
+   </ItemGroup>
+ 
+   <ItemGroup>
+diff --git a/src/Cassandra.IntegrationTests/Ado/AdoBasicTests.cs b/src/Cassandra.IntegrationTests/Ado/AdoBasicTests.cs
+index f38cfcc4..666754ff 100644
+--- a/src/Cassandra.IntegrationTests/Ado/AdoBasicTests.cs
++++ b/src/Cassandra.IntegrationTests/Ado/AdoBasicTests.cs
+@@ -52,12 +52,13 @@ namespace Cassandra.IntegrationTests.Data
+             var cmd = _connection.CreateCommand();
+ 
+             string keyspaceName = "keyspace_ado_1";
+-            cmd.CommandText = string.Format(TestUtils.CreateKeyspaceSimpleFormat, keyspaceName, 3);
++            cmd.CommandText = string.Format(TestUtils.CreateKeyspaceGenericFormat, keyspaceName, "NetworkTopologyStrategy",
++                                              string.Format("'replication_factor' : {0}", 3));
+             cmd.ExecuteNonQuery();
+ 
+             VerifyStatement(
+                 QueryType.Query,
+-                $"CREATE KEYSPACE \"{keyspaceName}\" WITH replication = {{ 'class' : 'SimpleStrategy', 'replication_factor' : {3} }}",
++                $"CREATE KEYSPACE {keyspaceName} WITH replication = {{ 'class' : 'NetworkTopologyStrategy', 'replication_factor' : {3} }}",
+                 1);
+ 
+             _connection.ChangeDatabase(keyspaceName);
+diff --git a/src/Cassandra.IntegrationTests/Cassandra.IntegrationTests.csproj b/src/Cassandra.IntegrationTests/Cassandra.IntegrationTests.csproj
+index a867801f..9be22066 100644
+--- a/src/Cassandra.IntegrationTests/Cassandra.IntegrationTests.csproj
++++ b/src/Cassandra.IntegrationTests/Cassandra.IntegrationTests.csproj
+@@ -92,7 +92,7 @@
+ 
+   <ItemGroup>
+     <PackageReference Include="App.Metrics" Version="3.2.0" />
+-    <PackageReference Include="OpenTelemetry.Exporter.InMemory" Version="1.5.1" />
++    <PackageReference Include="OpenTelemetry.Exporter.InMemory" Version="1.15.3" />
+     <PackageReference Include="SSH.NET" Version="2020.0.2" />
+     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+     <PackageReference Include="Appveyor.TestLogger" Version="2.0.0" />
+@@ -105,7 +105,7 @@
+     <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" />
+     <PackageReference Include="System.Runtime.Serialization.Json" Version="4.0.2" />
+     <PackageReference Include="System.Runtime.Serialization.Primitives" Version="4.1.1" />
+-    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
++    <PackageReference Include="System.ValueTuple" Version="4.6.1" />
+     <PackageReference Include="XunitXml.TestLogger" Version="2.1.26" />
+   </ItemGroup>
+   <ItemGroup Condition=" '$(TargetFramework)' == 'net462' Or '$(TargetFramework)' == 'net472' Or '$(TargetFramework)' == 'net481' ">
+@@ -126,4 +126,4 @@
+   <ItemGroup>
+     <Service Include="{82a7f48d-3b50-4b1e-b82e-3ada8210c358}" />
+   </ItemGroup>
+-</Project>
+\ No newline at end of file
++</Project>
 diff --git a/src/Cassandra.IntegrationTests/Core/ClusterTests.cs b/src/Cassandra.IntegrationTests/Core/ClusterTests.cs
 index e972fb34..656a7a95 100644
 --- a/src/Cassandra.IntegrationTests/Core/ClusterTests.cs
@@ -24,6 +118,178 @@ index e972fb34..656a7a95 100644
                  }, 100, 100);
                  var queried = false;
                  for (var i = 0; i < 10; i++)
+diff --git a/src/Cassandra.IntegrationTests/Core/CollectionsNestedTests.cs b/src/Cassandra.IntegrationTests/Core/CollectionsNestedTests.cs
+index eb243fd5..56ee38a0 100644
+--- a/src/Cassandra.IntegrationTests/Core/CollectionsNestedTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/CollectionsNestedTests.cs
+@@ -321,7 +321,7 @@ namespace Cassandra.IntegrationTests.Core
+ 
+         private void SetupForFrozenNestedCollectionTest(ISession session, string keyspaceName, string fqTableName)
+         {
+-            session.Execute(string.Format("CREATE KEYSPACE IF NOT EXISTS {0} WITH replication = {1};", keyspaceName, "{'class': 'SimpleStrategy', 'replication_factor' : 1}"));
++            session.Execute(string.Format("CREATE KEYSPACE IF NOT EXISTS {0} WITH replication = {1};", keyspaceName, "{'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}"));
+             session.Execute(string.Format("CREATE TABLE IF NOT EXISTS {0} " +
+                                           "(id int primary key, " +
+                                           "map1 map<text, frozen<list<text>>>," +
+diff --git a/src/Cassandra.IntegrationTests/Core/ConnectionTests.cs b/src/Cassandra.IntegrationTests/Core/ConnectionTests.cs
+index 0f10f213..abb2dce3 100644
+--- a/src/Cassandra.IntegrationTests/Core/ConnectionTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/ConnectionTests.cs
+@@ -291,7 +291,7 @@ namespace Cassandra.IntegrationTests.Core
+             using (var connection = CreateConnection())
+             {
+                 await connection.Open().ConfigureAwait(false);
+-                await Query(connection, "CREATE KEYSPACE ks_conn_consume WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1}")
++                await Query(connection, "CREATE KEYSPACE ks_conn_consume WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}")
+                     .ConfigureAwait(false);
+ 
+                 await Query(connection, "CREATE TABLE ks_conn_consume.tbl1 (id uuid primary key)").ConfigureAwait(false);
+@@ -514,9 +514,9 @@ namespace Cassandra.IntegrationTests.Core
+         public async Task SetKeyspace_Parallel_Calls_Serially_Executes()
+         {
+             const string queryKs1 = "create keyspace if not exists ks_to_switch_p1 WITH replication = " +
+-                                    "{'class': 'SimpleStrategy', 'replication_factor' : 1}";
++                                    "{'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}";
+             const string queryKs2 = "create keyspace if not exists ks_to_switch_p2 WITH replication = " +
+-                                    "{'class': 'SimpleStrategy', 'replication_factor' : 1}";
++                                    "{'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}";
+             // ReSharper disable AccessToDisposedClosure, AccessToModifiedClosure
+             using (var connection = CreateConnection())
+             {
+@@ -563,8 +563,8 @@ namespace Cassandra.IntegrationTests.Core
+         [Test]
+         public void SetKeyspace_Serial_Calls_Serially_Executes()
+         {
+-            const string queryKs1 = "create keyspace ks_to_switch_s1 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1}";
+-            const string queryKs2 = "create keyspace ks_to_switch_s2 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1}";
++            const string queryKs1 = "create keyspace ks_to_switch_s1 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}";
++            const string queryKs2 = "create keyspace ks_to_switch_s2 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}";
+             using (var connection = CreateConnection())
+             {
+                 connection.Open().Wait();
+@@ -604,7 +604,7 @@ namespace Cassandra.IntegrationTests.Core
+         public void SetKeyspace_When_Disposing_Faults_Task()
+         {
+             //Invoke multiple times, as it involves different threads and can be scheduled differently
+-            const string queryKs = "create keyspace ks_to_switch_when1 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1}";
++            const string queryKs = "create keyspace ks_to_switch_when1 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}";
+             using (var connection = CreateConnection())
+             {
+                 connection.Open().Wait();
+diff --git a/src/Cassandra.IntegrationTests/Core/MetadataTests.cs b/src/Cassandra.IntegrationTests/Core/MetadataTests.cs
+index 31d5d87a..4f3b26e8 100644
+--- a/src/Cassandra.IntegrationTests/Core/MetadataTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/MetadataTests.cs
+@@ -50,10 +50,10 @@ namespace Cassandra.IntegrationTests.Core
+             Assert.AreEqual(1, cluster.GetReplicas("ks2", new byte[] {0, 0, 0, 1}).Count);
+ 
+             const string createKeyspaceQuery = "CREATE KEYSPACE {0} WITH replication = {{ 'class' : '{1}', {2} }}";
+-            session.Execute(string.Format(createKeyspaceQuery, "ks1", "SimpleStrategy", "'replication_factor' : 1"));
+-            session.Execute(string.Format(createKeyspaceQuery, "ks2", "SimpleStrategy", "'replication_factor' : 3"));
++            session.Execute(string.Format(createKeyspaceQuery, "ks1", "NetworkTopologyStrategy", "'replication_factor' : 1"));
++            session.Execute(string.Format(createKeyspaceQuery, "ks2", "NetworkTopologyStrategy", "'replication_factor' : 3"));
+             session.Execute(string.Format(createKeyspaceQuery, "ks3", "NetworkTopologyStrategy", "'dc1' : 1"));
+-            session.Execute(string.Format(createKeyspaceQuery, "\"KS4\"", "SimpleStrategy", "'replication_factor' : 3"));
++            session.Execute(string.Format(createKeyspaceQuery, "\"KS4\"", "NetworkTopologyStrategy", "'replication_factor' : 3"));
+             //Let the magic happen
+             Thread.Sleep(5000);
+             Assert.Greater(cluster.Metadata.GetKeyspaces().Count, initialLength);
+@@ -260,17 +260,18 @@ namespace Cassandra.IntegrationTests.Core
+         }
+ 
+         [Test]
+-        public void CheckSimpleStrategyKeyspace()
++        public void CheckNetworkTopologyStrategyKeyspace_SingleDatacenter()
+         {
+             ITestCluster testCluster = TestClusterManager.GetNonShareableTestCluster(DefaultNodeCount);
+             var session = testCluster.Session;
+             bool durableWrites = Randomm.Instance.NextBoolean();
+             string keyspaceName = TestUtils.GetUniqueKeyspaceName();
+ 
+-            string strategyClass = ReplicationStrategies.SimpleStrategy;
++            string strategyClass = ReplicationStrategies.NetworkTopologyStrategy;
+             int replicationFactor = Randomm.Instance.Next(1, 21);
+             session.CreateKeyspace(keyspaceName,
+-                ReplicationStrategies.CreateSimpleStrategyReplicationProperty(replicationFactor),
++                ReplicationStrategies.CreateNetworkTopologyStrategyReplicationProperty(
++                    new Dictionary<string, int> { { "replication_factor", replicationFactor } }),
+                 durableWrites);
+             session.ChangeKeyspace(keyspaceName);
+ 
+@@ -338,7 +339,7 @@ namespace Cassandra.IntegrationTests.Core
+             ITestCluster testCluster = TestClusterManager.GetNonShareableTestCluster(DefaultNodeCount);
+             var session = testCluster.Session;
+ 
+-            const string strategyClass = "SimpleStrategy";
++            const string strategyClass = "NetworkTopologyStrategy";
+             const bool durableWrites = false;
+             const int replicationFactor = 1;
+             string cql = string.Format(@"
+@@ -502,11 +503,11 @@ namespace Cassandra.IntegrationTests.Core
+             var testCluster = TestClusterManager.GetNonShareableTestCluster(3, DefaultMaxClusterCreateRetries, true, false);
+             var queries = new[]
+             {
+-                "CREATE KEYSPACE ks1 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3};",
++                "CREATE KEYSPACE ks1 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3};",
+                 "CREATE TABLE ks1.tbl1 (id uuid PRIMARY KEY, value text)",
+                 "SELECT * FROM ks1.tbl1",
+                 "SELECT * FROM ks1.tbl1 where id = d54cb06d-d168-45a0-b1b2-9f5c75435d3d",
+-                "CREATE KEYSPACE ks2 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3};",
++                "CREATE KEYSPACE ks2 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3};",
+                 "CREATE TABLE ks2.tbl2 (id uuid PRIMARY KEY, value text)",
+                 "SELECT * FROM ks2.tbl2",
+                 "SELECT * FROM ks2.tbl2",
+@@ -558,7 +559,7 @@ namespace Cassandra.IntegrationTests.Core
+         {
+             var queries = new[]
+             {
+-                "CREATE KEYSPACE ks_view_meta WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3}",
++                "CREATE KEYSPACE ks_view_meta WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}",
+                 "CREATE TABLE ks_view_meta.scores (user TEXT, game TEXT, year INT, month INT, day INT, score INT, PRIMARY KEY (user, game, year, month, day))",
+                 "CREATE MATERIALIZED VIEW ks_view_meta.dailyhigh AS SELECT user FROM scores WHERE game IS NOT NULL AND year IS NOT NULL AND month IS NOT NULL AND day IS NOT NULL AND score IS NOT NULL AND user IS NOT NULL PRIMARY KEY ((game, year, month, day), score, user) WITH CLUSTERING ORDER BY (score DESC)"
+             };
+@@ -616,7 +617,7 @@ namespace Cassandra.IntegrationTests.Core
+         {
+             var queries = new[]
+             {
+-                "CREATE KEYSPACE ks_view_meta2 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3}",
++                "CREATE KEYSPACE ks_view_meta2 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}",
+                 @"CREATE TABLE ks_view_meta2.t1 (""theKey"" INT, ""the;Clustering"" INT, ""the Value"" INT, PRIMARY KEY (""theKey"", ""the;Clustering""))",
+                 @"CREATE MATERIALIZED VIEW ks_view_meta2.mv1 AS SELECT ""theKey"", ""the;Clustering"", ""the Value"" FROM t1 WHERE ""theKey"" IS NOT NULL AND ""the;Clustering"" IS NOT NULL AND ""the Value"" IS NOT NULL PRIMARY KEY (""theKey"", ""the;Clustering"")"
+             };
+diff --git a/src/Cassandra.IntegrationTests/Core/MultiThreadingTests.cs b/src/Cassandra.IntegrationTests/Core/MultiThreadingTests.cs
+index e2afeaee..75534e92 100644
+--- a/src/Cassandra.IntegrationTests/Core/MultiThreadingTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/MultiThreadingTests.cs
+@@ -58,7 +58,7 @@ namespace Cassandra.IntegrationTests.Core
+             ISession localSession = localCluster.Connect();
+             string keyspaceName = "kp_pi1_" + Randomm.RandomAlphaNum(10);
+ 
+-            localSession.Execute(string.Format(@"CREATE KEYSPACE {0} WITH replication = {{ 'class' : 'SimpleStrategy', 'replication_factor' : 2 }};", keyspaceName));
++            localSession.Execute(string.Format(@"CREATE KEYSPACE {0} WITH replication = {{ 'class' : 'NetworkTopologyStrategy', 'replication_factor' : 2 }};", keyspaceName));
+ 
+             TestUtils.WaitForSchemaAgreement(localCluster);
+             localSession.ChangeKeyspace(keyspaceName);
+@@ -228,8 +228,8 @@ namespace Cassandra.IntegrationTests.Core
+             ISession localSession = localCluster.Connect();
+             string keyspaceName = "kp_mat_" + Randomm.RandomAlphaNum(8);
+             localSession.Execute(
+-                string.Format(@"CREATE KEYSPACE {0} 
+-                    WITH replication = {{ 'class' : 'SimpleStrategy', 'replication_factor' : 2 }};"
++                string.Format(@"CREATE KEYSPACE {0}
++                    WITH replication = {{ 'class' : 'NetworkTopologyStrategy', 'replication_factor' : 2 }};"
+                                 , keyspaceName));
+             localSession.ChangeKeyspace(keyspaceName);
+ 
+@@ -294,7 +294,7 @@ namespace Cassandra.IntegrationTests.Core
+             ISession localSession = localCluster.Connect();
+             string keyspaceName = "keyspace" + Guid.NewGuid().ToString("N").ToLower();
+             localSession.Execute(
+-                    string.Format(@"CREATE KEYSPACE {0} WITH replication = {{ 'class' : 'SimpleStrategy', 'replication_factor' : 2 }};", keyspaceName));
++                    string.Format(@"CREATE KEYSPACE {0} WITH replication = {{ 'class' : 'NetworkTopologyStrategy', 'replication_factor' : 2 }};", keyspaceName));
+             localSession.ChangeKeyspace(keyspaceName);
+ 
+             string tableName = "table" + Guid.NewGuid().ToString("N").ToLower();
 diff --git a/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs b/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs
 index b3d8c586..c561c611 100644
 --- a/src/Cassandra.IntegrationTests/Core/ParameterizedStatementsTests.cs
@@ -37,8 +303,30 @@ index b3d8c586..c561c611 100644
                  {
                      setupQueries.Add($"CREATE TABLE {TableCompactStorage} (key blob PRIMARY KEY, bar int, baz uuid)" +
                                       $" WITH COMPACT STORAGE");
+diff --git a/src/Cassandra.IntegrationTests/Core/PoolTests.cs b/src/Cassandra.IntegrationTests/Core/PoolTests.cs
+index fd50c0ff..f09794cb 100644
+--- a/src/Cassandra.IntegrationTests/Core/PoolTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/PoolTests.cs
+@@ -303,7 +303,7 @@ namespace Cassandra.IntegrationTests.Core
+             {
+                 var session = cluster.Connect();
+                 //Will wait for all the nodes to have the same schema
+-                session.Execute("CREATE KEYSPACE ks1 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3}");
++                session.Execute("CREATE KEYSPACE ks1 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}");
+             }
+         }
+ 
+@@ -322,7 +322,7 @@ namespace Cassandra.IntegrationTests.Core
+             {
+                 var session = cluster.Connect();
+                 //Will wait for all the nodes to have the same schema
+-                session.Execute("CREATE KEYSPACE ks1 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3}");
++                session.Execute("CREATE KEYSPACE ks1 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}");
+                 session.ChangeKeyspace("ks1");
+                 TestHelper.ParallelInvoke(() =>
+                 {
 diff --git a/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs b/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs
-index 659ecf4d..9c22f983 100644
+index 659ecf4d..26839ef1 100644
 --- a/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs
 +++ b/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs
 @@ -34,6 +34,35 @@ namespace Cassandra.IntegrationTests.Core
@@ -74,10 +362,10 @@ index 659ecf4d..9c22f983 100644
 +            _privateClusterInstances.Clear();
 +            base.TearDown();
 +        }
-
+ 
          public PreparedStatementsTests() : base(3)
          {
-@@ -163,8 +192,8 @@ namespace Cassandra.IntegrationTests.Core
+@@ -163,15 +192,15 @@ namespace Cassandra.IntegrationTests.Core
          {
              byte[] originalResultMetadataId = null;
              // Use 2 different clusters as the prepared statement cache should be different
@@ -88,8 +376,25 @@ index 659ecf4d..9c22f983 100644
              {
                  var session1 = cluster1.Connect();
                  var session2 = cluster2.Connect();
+ 
+                 // Create schema and insert data
+                 session1.Execute(
+-                    "CREATE KEYSPACE ks1 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1}");
++                    "CREATE KEYSPACE ks1 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}");
+                 session1.ChangeKeyspace("ks1");
+                 session2.ChangeKeyspace("ks1");
+                 session1.Execute("CREATE TABLE table1 (id int PRIMARY KEY, a text, c text)");
+@@ -699,7 +728,7 @@ namespace Cassandra.IntegrationTests.Core
+                 .Build())
+             {
+                 var session = localCluster.Connect("system");
+-                session.Execute("CREATE KEYSPACE bound_changeks_test WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3}");
++                session.Execute("CREATE KEYSPACE bound_changeks_test WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}");
+                 TestUtils.WaitForSchemaAgreement(localCluster);
+                 var ps = session.Prepare("SELECT * FROM system.local");
+                 session.ChangeKeyspace("bound_changeks_test");
 @@ -906,13 +935,12 @@ namespace Cassandra.IntegrationTests.Core
-
+ 
          private void TestKeyspaceInPrepareNotSupported(bool specifyProtocol)
          {
 -            var builder = ClusterBuilder().AddContactPoint(TestClusterManager.InitialContactPoint);
@@ -107,7 +412,7 @@ index 659ecf4d..9c22f983 100644
 +                   }))
              {
                  var session = cluster.Connect(KeyspaceName);
-
+ 
 @@ -1114,7 +1142,7 @@ namespace Cassandra.IntegrationTests.Core
          [TestCassandraVersion(4, 0, Comparison.LessThan)]
          public void BatchStatement_With_Keyspace_Defined_On_Lower_Protocol_Versions()
@@ -118,7 +423,7 @@ index 659ecf4d..9c22f983 100644
                  var session = cluster.Connect("system");
                  var query = new SimpleStatement(
 @@ -1151,9 +1179,7 @@ namespace Cassandra.IntegrationTests.Core
-
+ 
              var tableName = TestUtils.GetUniqueTableName();
              using (var cluster = 
 -                ClusterBuilder()
@@ -140,9 +445,53 @@ index 6e4e736f..ec89a113 100644
 +        public SchemaAgreementTests() : base(3, false)
          {
          }
-
+ 
+diff --git a/src/Cassandra.IntegrationTests/Core/SchemaMetadataTests.cs b/src/Cassandra.IntegrationTests/Core/SchemaMetadataTests.cs
+index 35b1f6e8..a7eb2f43 100644
+--- a/src/Cassandra.IntegrationTests/Core/SchemaMetadataTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/SchemaMetadataTests.cs
+@@ -457,7 +457,7 @@ namespace Cassandra.IntegrationTests.Core
+         {
+             var queries = new[]
+             {
+-                "CREATE KEYSPACE IF NOT EXISTS ks_view_meta3 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3}",
++                "CREATE KEYSPACE IF NOT EXISTS ks_view_meta3 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}",
+                 "CREATE TABLE IF NOT EXISTS ks_view_meta3.scores (user TEXT, game TEXT, year INT, month INT, day INT, score INT, PRIMARY KEY (user, game, year, month, day))",
+                 "CREATE MATERIALIZED VIEW IF NOT EXISTS ks_view_meta3.monthlyhigh AS SELECT user, game, year, month, score, day FROM scores WHERE game IS NOT NULL AND year IS NOT NULL AND month IS NOT NULL AND score IS NOT NULL AND user IS NOT NULL AND day IS NOT NULL PRIMARY KEY ((game, year, month), score, user, day) WITH CLUSTERING ORDER BY (score DESC, user DESC, day DESC) AND compaction = { 'class' : 'SizeTieredCompactionStrategy' }"
+             };
+@@ -510,7 +510,7 @@ namespace Cassandra.IntegrationTests.Core
+         {
+             var queries = new[]
+             {
+-                "CREATE KEYSPACE IF NOT EXISTS ks_view_meta4 WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3}",
++                "CREATE KEYSPACE IF NOT EXISTS ks_view_meta4 WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}",
+                 "CREATE TABLE IF NOT EXISTS ks_view_meta4.scores (user TEXT, game TEXT, year INT, month INT, day INT, score INT, PRIMARY KEY (user, game, year, month, day))",
+                 "CREATE MATERIALIZED VIEW IF NOT EXISTS ks_view_meta4.dailyhigh AS SELECT user, game, year, month, day, score FROM scores WHERE game IS NOT NULL AND year IS NOT NULL AND month IS NOT NULL AND day IS NOT NULL AND score IS NOT NULL AND user IS NOT NULL PRIMARY KEY ((game, year, month, day), score, user) WITH CLUSTERING ORDER BY (score DESC, user DESC)",
+                 "CREATE MATERIALIZED VIEW IF NOT EXISTS ks_view_meta4.alltimehigh AS SELECT * FROM scores WHERE game IS NOT NULL AND year IS NOT NULL AND month IS NOT NULL AND day IS NOT NULL AND score IS NOT NULL AND user IS NOT NULL PRIMARY KEY (game, score, year, month, day, user) WITH CLUSTERING ORDER BY (score DESC, year DESC, month DESC, day DESC, user DESC)"
+diff --git a/src/Cassandra.IntegrationTests/Core/StressTests.cs b/src/Cassandra.IntegrationTests/Core/StressTests.cs
+index bcb79b6e..55a54607 100644
+--- a/src/Cassandra.IntegrationTests/Core/StressTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/StressTests.cs
+@@ -44,7 +44,7 @@ namespace Cassandra.IntegrationTests.Core
+                 var session = cluster.Connect();
+                 var uniqueKsName = "keyspace_" + Randomm.RandomAlphaNum(10);
+                 session.Execute(@"CREATE KEYSPACE " + uniqueKsName +
+-                                " WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3};");
++                                " WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3};");
+                 session.ChangeKeyspace(uniqueKsName);
+ 
+                 var tableName = "table_" + Guid.NewGuid().ToString("N").ToLower();
+@@ -101,7 +101,7 @@ namespace Cassandra.IntegrationTests.Core
+                 var session = cluster.Connect();
+                 var uniqueKsName = "keyspace_" + Randomm.RandomAlphaNum(10);
+                 session.Execute(@"CREATE KEYSPACE " + uniqueKsName +
+-                    " WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 3};");
++                    " WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 3};");
+                 session.ChangeKeyspace(uniqueKsName);
+ 
+                 var tableName = "table_" + Guid.NewGuid().ToString("N").ToLower();
 diff --git a/src/Cassandra.IntegrationTests/Core/UdfTests.cs b/src/Cassandra.IntegrationTests/Core/UdfTests.cs
-index c14cb094..86470c7d 100644
+index c14cb094..8edee417 100644
 --- a/src/Cassandra.IntegrationTests/Core/UdfTests.cs
 +++ b/src/Cassandra.IntegrationTests/Core/UdfTests.cs
 @@ -51,22 +51,26 @@ namespace Cassandra.IntegrationTests.Core
@@ -168,10 +517,11 @@ index c14cb094..86470c7d 100644
                  var session = cluster.Connect();
                  var queries = new List<string>
                  {
-                     "CREATE KEYSPACE  ks_udf WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1}",
+-                    "CREATE KEYSPACE  ks_udf WITH replication = {'class': 'SimpleStrategy', 'replication_factor' : 1}",
 -                    "CREATE FUNCTION  ks_udf.return_one() RETURNS NULL ON NULL INPUT RETURNS int LANGUAGE java AS 'return 1;'",
 -                    "CREATE FUNCTION  ks_udf.plus(s int, v int) RETURNS NULL ON NULL INPUT RETURNS int LANGUAGE java AS 'return s+v;'",
 -                    "CREATE FUNCTION  ks_udf.plus(s bigint, v bigint) RETURNS NULL ON NULL INPUT RETURNS bigint LANGUAGE java AS 'return s+v;'",
++                    "CREATE KEYSPACE  ks_udf WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}",
 +                    $"CREATE FUNCTION  ks_udf.return_one() RETURNS NULL ON NULL INPUT RETURNS int LANGUAGE {udfLanguage} AS 'return 1;'",
 +                    $"CREATE FUNCTION  ks_udf.plus(s int, v int) RETURNS NULL ON NULL INPUT RETURNS int LANGUAGE {udfLanguage} AS 'return s+v;'",
 +                    $"CREATE FUNCTION  ks_udf.plus(s bigint, v bigint) RETURNS NULL ON NULL INPUT RETURNS bigint LANGUAGE {udfLanguage} AS 'return s+v;'",
@@ -236,8 +586,288 @@ index c14cb094..86470c7d 100644
              if (metadataSync)
              {
                  TestHelper.RetryAssert(() =>
+diff --git a/src/Cassandra.IntegrationTests/Linq/LinqTable/CreateTable.cs b/src/Cassandra.IntegrationTests/Linq/LinqTable/CreateTable.cs
+index 7307f4f5..7f0ae15a 100644
+--- a/src/Cassandra.IntegrationTests/Linq/LinqTable/CreateTable.cs
++++ b/src/Cassandra.IntegrationTests/Linq/LinqTable/CreateTable.cs
+@@ -73,7 +73,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             "NullableTimeUuidType timeuuid, " +
+             "StringType text, " +
+             "TimeUuidType timeuuid";
+-        
++
+         private const string CreateCqlDefaultColumnsCaseSensitive =
+             "\"BooleanType\" boolean, " +
+             "\"DateTimeOffsetType\" timestamp, " +
+@@ -98,17 +98,17 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             $"CREATE TABLE \"{AllDataTypesEntity.TableName}\" (" +
+                 CreateTable.CreateCqlColumns + ", " +
+                 "PRIMARY KEY (\"string_type\", \"guid_type\"))";
+-        
++
+         private static readonly string CreateCqlFormatStr =
+             "CREATE TABLE {0} (" +
+             CreateTable.CreateCqlColumns + ", " +
+             "PRIMARY KEY (\"string_type\", \"guid_type\"))";
+ 
+         private readonly string _uniqueKsName = TestUtils.GetUniqueKeyspaceName().ToLowerInvariant();
+-        
++
+         /// <summary>
+         /// Create a table using the method CreateIfNotExists
+-        /// 
++        ///
+         /// @Jira CSHARP-42  https://datastax-oss.atlassian.net/browse/CSHARP-42
+         ///  - Jira detail: CreateIfNotExists causes InvalidOperationException
+         /// </summary>
+@@ -138,7 +138,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             table.Create();
+             VerifyStatement(QueryType.Query, CreateTable.CreateCql, 1);
+         }
+-        
++
+         [Test, TestCassandraVersion(4, 0, Comparison.LessThan)]
+         public void Should_CreateTable_WhenClusteringOrderAndCompactOptionsAreSet()
+         {
+@@ -150,9 +150,9 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             var table = new Table<Tweet>(Session, config);
+             table.Create();
+             VerifyStatement(
+-                QueryType.Query, 
++                QueryType.Query,
+                 "CREATE TABLE Tweet (AuthorId text, Body text, TweetId uuid, PRIMARY KEY (TweetId, AuthorId)) " +
+-                "WITH CLUSTERING ORDER BY (AuthorId DESC) AND COMPACT STORAGE", 
++                "WITH CLUSTERING ORDER BY (AuthorId DESC) AND COMPACT STORAGE",
+                 1);
+         }
+ 
+@@ -163,7 +163,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             table.CreateAsync().GetAwaiter().GetResult();
+             VerifyStatement(QueryType.Query, CreateTable.CreateCql, 1);
+         }
+-        
++
+         [Test, TestCassandraVersion(4, 0, Comparison.LessThan)]
+         public void Should_CreateTableAsync_WhenClusteringOrderAndCompactOptionsAreSet()
+         {
+@@ -175,14 +175,14 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             var table = new Table<Tweet>(Session, config);
+             table.CreateAsync().GetAwaiter().GetResult();
+             VerifyStatement(
+-                QueryType.Query, 
++                QueryType.Query,
+                 "CREATE TABLE Tweet (AuthorId text, Body text, TweetId uuid, PRIMARY KEY (TweetId, AuthorId)) " +
+-                "WITH CLUSTERING ORDER BY (AuthorId DESC) AND COMPACT STORAGE", 
++                "WITH CLUSTERING ORDER BY (AuthorId DESC) AND COMPACT STORAGE",
+                 1);
+         }
+ 
+         /// <summary>
+-        /// Successfully create a table using the method Create, 
++        /// Successfully create a table using the method Create,
+         /// overriding the default table name given via the class' "name" meta-tag
+         /// </summary>
+         [Test, TestCassandraVersion(2, 0)]
+@@ -193,8 +193,8 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             Assert.AreEqual(uniqueTableName, table.Name);
+             table.Create();
+             VerifyStatement(
+-                QueryType.Query, 
+-                CreateTable.CreateCql.Replace($"\"{AllDataTypesEntity.TableName}\"", $"\"{uniqueTableName}\""), 
++                QueryType.Query,
++                CreateTable.CreateCql.Replace($"\"{AllDataTypesEntity.TableName}\"", $"\"{uniqueTableName}\""),
+                 1);
+         }
+ 
+@@ -206,8 +206,8 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             Assert.AreEqual(uniqueTableName, table.Name);
+             table.CreateAsync().GetAwaiter().GetResult();
+             VerifyStatement(
+-                QueryType.Query, 
+-                CreateTable.CreateCql.Replace($"\"{AllDataTypesEntity.TableName}\"", $"\"{uniqueTableName}\""), 
++                QueryType.Query,
++                CreateTable.CreateCql.Replace($"\"{AllDataTypesEntity.TableName}\"", $"\"{uniqueTableName}\""),
+                 1);
+         }
+ 
+@@ -224,8 +224,8 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+ 
+             table.Create();
+             VerifyStatement(
+-                QueryType.Query, 
+-                $"CREATE TABLE {tableName} ({CreateTable.CreateCqlDefaultColumns}, PRIMARY KEY (TimeUuidType))", 
++                QueryType.Query,
++                $"CREATE TABLE {tableName} ({CreateTable.CreateCqlDefaultColumns}, PRIMARY KEY (TimeUuidType))",
+                 1);
+ 
+             TestCluster.PrimeFluent(
+@@ -249,8 +249,8 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+ 
+             table.CreateAsync().GetAwaiter().GetResult();
+             VerifyStatement(
+-                QueryType.Query, 
+-                $"CREATE TABLE {tableName} ({CreateTable.CreateCqlDefaultColumns}, PRIMARY KEY (TimeUuidType))", 
++                QueryType.Query,
++                $"CREATE TABLE {tableName} ({CreateTable.CreateCqlDefaultColumns}, PRIMARY KEY (TimeUuidType))",
+                 1);
+ 
+             TestCluster.PrimeFluent(
+@@ -265,7 +265,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+         }
+ 
+         /// <summary>
+-        /// Attempt to create two tables of different types but with the same name using the Create method. 
++        /// Attempt to create two tables of different types but with the same name using the Create method.
+         /// Validate expected failure message
+         /// </summary>
+         [Test, TestCassandraVersion(2, 0)]
+@@ -309,7 +309,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             var mappingConfig = new MappingConfiguration().Define(new Map<AllDataTypesEntity>().TableName(staticTableName).CaseSensitive().PartitionKey(c => c.StringType));
+             var allDataTypesTable = new Table<AllDataTypesEntity>(Session, mappingConfig);
+             allDataTypesTable.Create();
+-            
++
+             VerifyStatement(
+                 QueryType.Query,
+                 $"CREATE TABLE \"{staticTableName}\" ({CreateTable.CreateCqlDefaultColumnsCaseSensitive}, PRIMARY KEY (\"StringType\"))",
+@@ -399,7 +399,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+         {
+             var uniqueTableName = TestUtils.GetUniqueTableName();
+             var uniqueKsName = TestUtils.GetUniqueKeyspaceName();
+-            
++
+             TestCluster.PrimeFluent(
+                 b => b.WhenQuery(string.Format(CreateTable.CreateCqlFormatStr, $"\"{uniqueKsName}\".\"{uniqueTableName}\""))
+                       .ThenServerError(ServerError.ConfigError, "msg"));
+@@ -413,7 +413,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+         {
+             var uniqueTableName = TestUtils.GetUniqueTableName();
+             var uniqueKsName = TestUtils.GetUniqueKeyspaceName();
+-            
++
+             TestCluster.PrimeFluent(
+                 b => b.WhenQuery(string.Format(CreateTable.CreateCqlFormatStr, $"\"{uniqueKsName}\".\"{uniqueTableName}\""))
+                       .ThenServerError(ServerError.ConfigError, "msg"));
+@@ -450,7 +450,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             VerifyStatement(
+                 QueryType.Query,
+                 $"CREATE KEYSPACE \"{newUniqueKsName}\" " +
+-                "WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : '1'}" +
++                "WITH replication = {'class' : 'NetworkTopologyStrategy', 'replication_factor' : '1'}" +
+                 " AND durable_writes = true",
+                 1);
+ 
+@@ -531,14 +531,14 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+                 .ExplicitColumns());
+             var table = new Table<UdtAndTuplePoco>(Session, config);
+             table.Create();
+-            
++
+             VerifyStatement(
+                 QueryType.Query,
+                 "CREATE TABLE tbl_frozen_tuple (Id1 uuid, t frozen<tuple<bigint, bigint, text>>, PRIMARY KEY (Id1))",
+                 1);
+-            
++
+             PrimeSystemSchemaTables(
+-                _uniqueKsName, 
++                _uniqueKsName,
+                 "tbl_frozen_tuple",
+                 new []
+                 {
+@@ -571,7 +571,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+                                                                                   .AsCounter()));
+             var table = new Table<AllTypesEntity>(Session, config);
+             table.Create();
+-            
++
+             VerifyStatement(
+                 QueryType.Query,
+                 "CREATE TABLE tbl_with_counter_static (" +
+@@ -580,13 +580,13 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+                 1);
+ 
+             PrimeSystemSchemaTables(
+-                _uniqueKsName, 
++                _uniqueKsName,
+                 "tbl_with_counter_static",
+                 new []
+                 {
+                     new StubTableColumn("counter_col1", StubColumnKind.Regular, DataType.Counter),
+-                    new StubTableColumn("counter_col2", StubColumnKind.Regular, DataType.Counter), 
+-                    new StubTableColumn("id1", StubColumnKind.PartitionKey, DataType.Uuid), 
++                    new StubTableColumn("counter_col2", StubColumnKind.Regular, DataType.Counter),
++                    new StubTableColumn("id1", StubColumnKind.PartitionKey, DataType.Uuid),
+                     new StubTableColumn("id2", StubColumnKind.ClusteringKey, DataType.Text)
+                 });
+ 
+@@ -604,7 +604,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+         {
+             var table = new Table<TestEmptyClusteringColumnName>(Session, MappingConfiguration.Global);
+             table.CreateIfNotExists();
+-            
++
+             VerifyStatement(
+                 QueryType.Query,
+                 "CREATE TABLE \"test_empty_clustering_column_name\" (" +
+@@ -636,13 +636,13 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             VerifyStatement(
+                 QueryType.Query,
+                 string.Format(
+-                    AllDataTypesEntity.InsertCqlDefaultColumnsFormatStr, 
++                    AllDataTypesEntity.InsertCqlDefaultColumnsFormatStr,
+                     ksAndTable),
+                 1,
+                 expectedDataTypesEntityRow.GetColumnValuesForDefaultColumns());
+ 
+             // select record
+-            
++
+             TestCluster.PrimeFluent(
+                 b => b.WhenQuery(
+                           string.Format(AllDataTypesEntity.SelectCqlDefaultColumnsFormatStr, ksAndTable),
+@@ -652,7 +652,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+                           r => r.WithRow(expectedDataTypesEntityRow.GetColumnValuesForDefaultColumns())));
+ 
+ 
+-            var listOfAllDataTypesObjects = 
++            var listOfAllDataTypesObjects =
+                 (from x in table where x.StringType.Equals(uniqueKey) select x)
+                 .Execute().ToList();
+             Assert.NotNull(listOfAllDataTypesObjects);
+@@ -677,7 +677,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             VerifyBatchStatement(
+                 1,
+                 new [] { string.Format(
+-                    AllDataTypesEntity.InsertCqlDefaultColumnsFormatStr, 
++                    AllDataTypesEntity.InsertCqlDefaultColumnsFormatStr,
+                     ksAndTable) },
+                 new [] { expectedDataTypesEntityRow.GetColumnValuesForDefaultColumns() });
+ 
+@@ -689,9 +689,9 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+                           AllDataTypesEntity.GetDefaultColumns(),
+                           r => r.WithRow(expectedDataTypesEntityRow.GetColumnValuesForDefaultColumns())));
+ 
+-            var listOfAllDataTypesObjects = 
+-                (from x in table 
+-                 where x.StringType.Equals(uniqueKey) 
++            var listOfAllDataTypesObjects =
++                (from x in table
++                 where x.StringType.Equals(uniqueKey)
+                  select x)
+                 .Execute().ToList();
+             Assert.NotNull(listOfAllDataTypesObjects);
+@@ -734,7 +734,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             // ReSharper disable once InconsistentNaming
+             // ReSharper disable once UnusedMember.Local
+             public string cluster { get; set; }
+-            
++
+             [Column]
+             // ReSharper disable once InconsistentNaming
+             // ReSharper disable once UnusedMember.Local
 diff --git a/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs b/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs
-index 7cecd275..c6927928 100644
+index 7cecd275..776a4f6f 100644
 --- a/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs
 +++ b/src/Cassandra.IntegrationTests/Mapping/Tests/InsertTests.cs
 @@ -351,11 +351,13 @@ namespace Cassandra.IntegrationTests.Mapping.Tests
@@ -254,10 +884,10 @@ index 7cecd275..c6927928 100644
              }
 +            var expectedErrMsg = TestClusterManager.IsScylla ? expectedMessageScylla : expectedMessageCassandra;
              StringAssert.Contains(expectedErrMsg, ex.Message);
-
+ 
              // Validate that select on lower case key does not fail
 @@ -379,11 +381,13 @@ namespace Cassandra.IntegrationTests.Mapping.Tests
-
+ 
              // Validate expected exception
              var ex = Assert.Throws<InvalidQueryException>(() => cqlClient.Insert(pocoWithCustomAttributes));
 -            var expectedMessage = "Unknown identifier someotherstring";
@@ -271,13 +901,269 @@ index 7cecd275..c6927928 100644
 +            var expectedMessage = TestClusterManager.IsScylla ? expectedMessageScylla : expectedMessageCassandra;
              StringAssert.Contains(expectedMessage, ex.Message);
          }
-
+ 
+@@ -551,8 +555,8 @@ namespace Cassandra.IntegrationTests.Mapping.Tests
+                 var session = cluster.Connect();
+                 session.CreateKeyspace(anotherKeyspace, new Dictionary<string, string>
+                 {
+-                    { "class", "SimpleStrategy"},
+-                    { "replication_factor", "3"}
++                    { "class", "NetworkTopologyStrategy" },
++                    { "replication_factor", "1"}
+                 });
+                 session.ChangeKeyspace(anotherKeyspace);
+ 
+@@ -587,7 +591,7 @@ namespace Cassandra.IntegrationTests.Mapping.Tests
+                 var batch = mapper.CreateBatch();
+                 batch.Insert(user1);
+                 batch.Insert(user2);
+-                var consistency = ConsistencyLevel.All;
++                var consistency = ConsistencyLevel.Three;
+                 batch.WithOptions(o => o.SetConsistencyLevel(consistency));
+                 //Timestamp for BATCH request is supported in Cassandra 2.1 or above.
+                 if (TestClusterManager.CassandraVersion > Version.Parse("2.1"))
+@@ -596,8 +600,8 @@ namespace Cassandra.IntegrationTests.Mapping.Tests
+                     batch.WithOptions(o => o.SetTimestamp(timestamp));
+                 }
+                 var ex = Assert.Throws<UnavailableException>(() => mapper.Execute(batch));
+-                Assert.AreEqual(ConsistencyLevel.All, ex.Consistency,
+-                            "Consistency level of batch exception should be the same as specified at CqlQueryOptions: ALL");
++                Assert.AreEqual(ConsistencyLevel.Three, ex.Consistency,
++                            "Consistency level of batch exception should be the same as specified at CqlQueryOptions: THREE");
+                 Assert.AreEqual(3, ex.RequiredReplicas);
+                 Assert.AreEqual(1, ex.AliveReplicas);
+             }
+diff --git a/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeMetadataSyncTests.cs b/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeMetadataSyncTests.cs
+index 8b9121dc..3cded0f8 100644
+--- a/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeMetadataSyncTests.cs
++++ b/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeMetadataSyncTests.cs
+@@ -69,7 +69,7 @@ namespace Cassandra.IntegrationTests.MetadataTests
+                 Assert.AreEqual(3, newCluster.Metadata.Hosts.Count);
+ 
+                 Assert.IsNull(newCluster.Metadata.TokenToReplicasMap.GetByKeyspace(keyspaceName));
+-                var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++                var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+ 
+                 newSession.Execute(createKeyspaceCql);
+                 TestUtils.WaitForSchemaAgreement(newCluster);
+@@ -85,7 +85,7 @@ namespace Cassandra.IntegrationTests.MetadataTests
+         public void TokenMap_Should_NotUpdateExistingTokenMap_When_KeyspaceIsRemoved()
+         {
+             var keyspaceName = TestUtils.GetUniqueKeyspaceName().ToLower();
+-            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+             _session.Execute(createKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(_cluster);
+ 
+@@ -110,7 +110,7 @@ namespace Cassandra.IntegrationTests.MetadataTests
+         public void TokenMap_Should_NotUpdateExistingTokenMap_When_KeyspaceIsChanged()
+         {
+             var keyspaceName = TestUtils.GetUniqueKeyspaceName().ToLower();
+-            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+             _session.Execute(createKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(_cluster);
+ 
+@@ -130,7 +130,8 @@ namespace Cassandra.IntegrationTests.MetadataTests
+ 
+                 Assert.AreEqual(3, newCluster.Metadata.Hosts.Count(h => h.IsUp));
+                 var oldTokenMap = newCluster.Metadata.TokenToReplicasMap;
+-                var alterKeyspaceCql = $"ALTER KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 2}}";
++                var dcName = newCluster.Metadata.Hosts.First().Datacenter;
++                var alterKeyspaceCql = $"ALTER KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', '{dcName}' : 2}}";
+                 newSession.Execute(alterKeyspaceCql);
+                 TestUtils.WaitForSchemaAgreement(newCluster);
+                 TestHelper.RetryAssert(() =>
+@@ -149,11 +150,11 @@ namespace Cassandra.IntegrationTests.MetadataTests
+         public async Task TokenMap_Should_RefreshTokenMapForSingleKeyspace_When_RefreshSchemaWithKeyspaceIsCalled()
+         {
+             var keyspaceName = TestUtils.GetUniqueKeyspaceName().ToLower();
+-            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+             _session.Execute(createKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(_cluster);
+             keyspaceName = TestUtils.GetUniqueKeyspaceName().ToLower();
+-            createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++            createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+             _session.Execute(createKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(_cluster);
+ 
+@@ -188,11 +189,11 @@ namespace Cassandra.IntegrationTests.MetadataTests
+         public async Task TokenMap_Should_RefreshTokenMapForAllKeyspaces_When_RefreshSchemaWithoutKeyspaceIsCalled()
+         {
+             var keyspaceName1 = TestUtils.GetUniqueKeyspaceName().ToLower();
+-            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName1} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName1} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+             _session.Execute(createKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(_cluster);
+             var keyspaceName = TestUtils.GetUniqueKeyspaceName().ToLower();
+-            createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++            createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+             _session.Execute(createKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(_cluster);
+ 
+diff --git a/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeTests.cs b/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeTests.cs
+index c390e258..2a36caaa 100644
+--- a/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeTests.cs
++++ b/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeTests.cs
+@@ -42,7 +42,7 @@ namespace Cassandra.IntegrationTests.MetadataTests
+             Assert.AreEqual(3, newCluster.Metadata.Hosts.Count);
+ 
+             Assert.IsNull(newCluster.Metadata.TokenToReplicasMap.GetByKeyspace(keyspaceName));
+-            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+ 
+             newSession.Execute(createKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(newCluster);
+@@ -64,7 +64,7 @@ namespace Cassandra.IntegrationTests.MetadataTests
+         public void TokenMap_Should_UpdateExistingTokenMap_When_KeyspaceIsRemoved()
+         {
+             var keyspaceName = TestUtils.GetUniqueKeyspaceName().ToLower();
+-            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+             Session.Execute(createKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(Cluster);
+ 
+@@ -85,7 +85,7 @@ namespace Cassandra.IntegrationTests.MetadataTests
+         public void TokenMap_Should_UpdateExistingTokenMap_When_KeyspaceIsChanged()
+         {
+             var keyspaceName = TestUtils.GetUniqueKeyspaceName().ToLower();
+-            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++            var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+             Session.Execute(createKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(Cluster);
+ 
+@@ -100,7 +100,8 @@ namespace Cassandra.IntegrationTests.MetadataTests
+ 
+             Assert.AreEqual(3, newCluster.Metadata.Hosts.Count(h => h.IsUp));
+             var oldTokenMap = newCluster.Metadata.TokenToReplicasMap;
+-            var alterKeyspaceCql = $"ALTER KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 2}}";
++            var dcName = newCluster.Metadata.Hosts.First().Datacenter;
++            var alterKeyspaceCql = $"ALTER KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', '{dcName}' : 2}}";
+             newSession.Execute(alterKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(newCluster);
+             TestHelper.RetryAssert(() =>
+diff --git a/src/Cassandra.IntegrationTests/MetadataTests/TokenMapTopologyChangeTests.cs b/src/Cassandra.IntegrationTests/MetadataTests/TokenMapTopologyChangeTests.cs
+index 92760652..6f377adb 100644
+--- a/src/Cassandra.IntegrationTests/MetadataTests/TokenMapTopologyChangeTests.cs
++++ b/src/Cassandra.IntegrationTests/MetadataTests/TokenMapTopologyChangeTests.cs
+@@ -60,7 +60,7 @@ namespace Cassandra.IntegrationTests.MetadataTests
+                 var sessionNotSync = ClusterObjNotSync.Connect();
+                 var sessionSync = ClusterObjSync.Connect();
+ 
+-                var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 3}}";
++                var createKeyspaceCql = $"CREATE KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 3}}";
+                 sessionNotSync.Execute(createKeyspaceCql);
+ 
+                 TestUtils.WaitForSchemaAgreement(ClusterObjNotSync);
+diff --git a/src/Cassandra.IntegrationTests/Policies/Tests/LoadBalancingPolicyShortTests.cs b/src/Cassandra.IntegrationTests/Policies/Tests/LoadBalancingPolicyShortTests.cs
+index fe8e8da3..54e28b28 100644
+--- a/src/Cassandra.IntegrationTests/Policies/Tests/LoadBalancingPolicyShortTests.cs
++++ b/src/Cassandra.IntegrationTests/Policies/Tests/LoadBalancingPolicyShortTests.cs
+@@ -55,8 +55,8 @@ namespace Cassandra.IntegrationTests.Policies.Tests
+             }
+         }
+         /// <summary>
+-        /// Validate that no hops occur when inserting into a single partition 
+-        /// 
++        /// Validate that no hops occur when inserting into a single partition
++        ///
+         /// @test_category load_balancing:dc_aware,round_robin
+         /// @test_category replication_strategy
+         /// </summary>
+@@ -89,8 +89,8 @@ namespace Cassandra.IntegrationTests.Policies.Tests
+         }
+ 
+         /// <summary>
+-        /// Validate that no hops occur when inserting GUID values into the key 
+-        /// 
++        /// Validate that no hops occur when inserting GUID values into the key
++        ///
+         /// @test_category load_balancing:dc_aware,round_robin
+         /// @test_category replication_strategy
+         /// </summary>
+@@ -126,8 +126,8 @@ namespace Cassandra.IntegrationTests.Policies.Tests
+         }
+ 
+         /// <summary>
+-        /// Validate that no hops occur when inserting into a composite key 
+-        /// 
++        /// Validate that no hops occur when inserting into a composite key
++        ///
+         /// @test_category load_balancing:dc_aware,round_robin
+         /// @test_category replication_strategy
+         /// </summary>
+@@ -200,8 +200,8 @@ namespace Cassandra.IntegrationTests.Policies.Tests
+         }
+ 
+         /// <summary>
+-        /// Validate that no hops occur when inserting string values via a prepared statement 
+-        /// 
++        /// Validate that no hops occur when inserting string values via a prepared statement
++        ///
+         /// @test_category load_balancing:dc_aware,round_robin
+         /// @test_category replication_strategy
+         /// @test_category prepared_statements
+@@ -240,8 +240,8 @@ namespace Cassandra.IntegrationTests.Policies.Tests
+         }
+ 
+         /// <summary>
+-        /// Validate that no hops occur when inserting int values via a prepared statement 
+-        /// 
++        /// Validate that no hops occur when inserting int values via a prepared statement
++        ///
+         /// @test_category load_balancing:dc_aware,round_robin
+         /// @test_category replication_strategy
+         /// @test_category prepared_statements
+@@ -277,8 +277,8 @@ namespace Cassandra.IntegrationTests.Policies.Tests
+         }
+ 
+         /// <summary>
+-        /// Validate that hops occur when the wrong partition is targeted 
+-        /// 
++        /// Validate that hops occur when the wrong partition is targeted
++        ///
+         /// @test_category load_balancing:dc_aware,round_robin
+         /// @test_category replication_strategy
+         /// </summary>
+@@ -323,7 +323,14 @@ namespace Cassandra.IntegrationTests.Policies.Tests
+                 var session = cluster.Connect();
+                 Assert.AreEqual(256, cluster.AllHosts().First().Tokens.Count());
+                 var ks = TestUtils.GetUniqueKeyspaceName();
+-                session.Execute($"CREATE KEYSPACE \"{ks}\" WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 1}}");
++                if (TestClusterManager.IsScylla)
++                {
++                    session.Execute($"CREATE KEYSPACE \"{ks}\" WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}} AND tablets = {{'enabled': false}}");
++                }
++                else
++                {
++                    session.Execute($"CREATE KEYSPACE \"{ks}\" WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 1}}");
++                }
+                 session.ChangeKeyspace(ks);
+                 session.Execute("CREATE TABLE tbl1 (id uuid primary key)");
+                 var ps = session.Prepare("INSERT INTO tbl1 (id) VALUES (?)");
+@@ -363,7 +370,14 @@ namespace Cassandra.IntegrationTests.Policies.Tests
+                 // Connect without a keyspace
+                 var session = cluster.Connect();
+                 var ks = TestUtils.GetUniqueKeyspaceName();
+-                session.Execute($"CREATE KEYSPACE \"{ks}\" WITH replication = {{'class': 'SimpleStrategy', 'replication_factor' : 2}}");
++                if (TestClusterManager.IsScylla)
++                {
++                    session.Execute($"CREATE KEYSPACE \"{ks}\" WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 2}} AND tablets = {{'enabled': false}}");
++                }
++                else
++                {
++                    session.Execute($"CREATE KEYSPACE \"{ks}\" WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 2}}");
++                }
+                 session.ChangeKeyspace(ks);
+                 session.Execute($"CREATE TABLE tbl1 (id uuid primary key)");
+                 var ps = session.Prepare($"INSERT INTO tbl1 (id) VALUES (?)");
 diff --git a/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs b/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
 index b5303b43..7071921a 100644
 --- a/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
 +++ b/src/Cassandra.IntegrationTests/TestBase/TestDseVersion.cs
 @@ -106,6 +106,18 @@ namespace Cassandra.IntegrationTests.TestBase
-
+ 
          public static bool VersionMatch(Version expectedVersion, bool requiresDse, bool requiresOss, Comparison comparison, out string message)
          {
 +            if (TestClusterManager.IsScylla && requiresDse)
@@ -295,6 +1181,20 @@ index b5303b43..7071921a 100644
              if (TestClusterManager.IsDse && requiresOss)
              {
                  message = string.Format("Test designed to run with OSS {0} v{1} (executing DSE {2})", 
+diff --git a/src/Cassandra.IntegrationTests/TestBase/TestUtils.cs b/src/Cassandra.IntegrationTests/TestBase/TestUtils.cs
+index c4ce8ac7..c8e8fd50 100644
+--- a/src/Cassandra.IntegrationTests/TestBase/TestUtils.cs
++++ b/src/Cassandra.IntegrationTests/TestBase/TestUtils.cs
+@@ -39,7 +39,8 @@ namespace Cassandra.IntegrationTests.TestBase
+         private const int DefaultSleepIterationMs = 1000;
+ 
+         public static readonly string CreateKeyspaceSimpleFormat =
+-            "CREATE KEYSPACE \"{0}\" WITH replication = {{ 'class' : 'SimpleStrategy', 'replication_factor' : {1} }}";
++            "CREATE KEYSPACE \"{0}\" WITH replication = {{ 'class' : 'NetworkTopologyStrategy', 'replication_factor' : {1} }}" +
++            (TestClusterManager.IsScylla ? " AND tablets = {{'enabled': false}}" : "");
+ 
+         public static readonly string CreateKeyspaceGenericFormat = "CREATE KEYSPACE {0} WITH replication = {{ 'class' : '{1}', {2} }}";
+ 
 diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs
 index dde5d86f..780e968c 100644
 --- a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmBridge.cs
@@ -309,7 +1209,7 @@ index dde5d86f..780e968c 100644
 +        public string IpPrefix => $"127.0.{IdPrefix}.";
          public ICcmProcessExecuter CcmProcessExecuter { get; set; }
          private readonly string _dseInstallPath;
-
+ 
 -        public CcmBridge(string name, string ipPrefix, string dsePath, string version, ICcmProcessExecuter executor)
 +        public CcmBridge(string name, string idPrefix, string dsePath, string version, string scyllaVersion, ICcmProcessExecuter executor)
          {
@@ -322,12 +1222,12 @@ index dde5d86f..780e968c 100644
              Version = version;
 +            ScyllaVersion = scyllaVersion;
          }
-
+ 
          public void Dispose()
 @@ -64,18 +67,14 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
                  sslParams = "--ssl " + sslPath;
              }
-
+ 
 -            if (string.IsNullOrEmpty(_dseInstallPath))
 +            if (!string.IsNullOrEmpty(ScyllaVersion))
              {
@@ -358,9 +1258,9 @@ index dde5d86f..780e968c 100644
 +            {
 +               cmd += " --scylla";
 +            }
-
+ 
              var output = ExecuteCcm(string.Format(cmd, n, IpPrefix, n, 7000 + 100 * n, dc != null ? "-d " + dc : null));
-
+ 
 diff --git a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs b/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs
 index 087e60ef..3ee05464 100644
 --- a/src/Cassandra.IntegrationTests/TestClusterManagement/CcmCluster.cs
@@ -381,7 +1281,7 @@ index 087e60ef..3ee05464 100644
          private readonly ICcmProcessExecuter _executor;
          private CcmBridge _ccm;
          private int _nodeLength;
-
+ 
 -        public CcmCluster(string name, string clusterIpPrefix, string dsePath, ICcmProcessExecuter executor, string defaultKeyspace, string version)
 +        public CcmCluster(string name, string idPrefix, string dsePath, ICcmProcessExecuter executor, string defaultKeyspace, string version, string scyllaVersion = null)
          {
@@ -397,7 +1297,7 @@ index 087e60ef..3ee05464 100644
              Version = version;
 +            ScyllaVersion = scyllaVersion;
          }
-
+ 
          public void Create(int nodeLength, TestClusterOptions options = null)
          {
              _nodeLength = nodeLength;
@@ -420,13 +1320,13 @@ index 662a3cfd..3d1c8421 100644
 +        {
 +            return (_idPrefixCounter++).ToString();
 +        }
-
+ 
          private static readonly Version Version2Dot0 = new Version(2, 0);
          private static readonly Version Version2Dot1 = new Version(2, 1);
 @@ -114,6 +119,16 @@ namespace Cassandra.IntegrationTests.TestClusterManagement
              get { return Environment.GetEnvironmentVariable("CASSANDRA_VERSION") ?? "3.11.2"; }
          }
-
+ 
 +        public static string ScyllaVersionString
 +        {
 +            get { return Environment.GetEnvironmentVariable("SCYLLA_VERSION"); }
@@ -455,3 +1355,58 @@ index 662a3cfd..3d1c8421 100644
              testCluster.Create(nodeLength, options);
              if (startCluster)
              {
+diff --git a/src/Cassandra/CqlQueryTools.cs b/src/Cassandra/CqlQueryTools.cs
+index d556e1a7..b13c5893 100644
+--- a/src/Cassandra/CqlQueryTools.cs
++++ b/src/Cassandra/CqlQueryTools.cs
+@@ -75,11 +75,11 @@ namespace Cassandra
+         {
+             if (replication == null)
+             {
+-                replication = new Dictionary<string, string> { { "class", ReplicationStrategies.SimpleStrategy }, { "replication_factor", "1" } };
++                replication = new Dictionary<string, string> { { "class", ReplicationStrategies.NetworkTopologyStrategy }, { "replication_factor", "1" } };
+             }
+ 
+             return string.Format(
+-                "CREATE KEYSPACE {3}{0} WITH replication = {1} AND durable_writes = {2}", 
++                "CREATE KEYSPACE {3}{0} WITH replication = {1} AND durable_writes = {2}",
+                 QuoteIdentifier(keyspace),
+                 Utils.ConvertToCqlMap(replication),
+                 durableWrites ? "true" : "false",
+diff --git a/src/Extensions/Cassandra.OpenTelemetry/Cassandra.OpenTelemetry.csproj b/src/Extensions/Cassandra.OpenTelemetry/Cassandra.OpenTelemetry.csproj
+index db4603ec..11857377 100644
+--- a/src/Extensions/Cassandra.OpenTelemetry/Cassandra.OpenTelemetry.csproj
++++ b/src/Extensions/Cassandra.OpenTelemetry/Cassandra.OpenTelemetry.csproj
+@@ -23,8 +23,8 @@
+   </PropertyGroup>
+ 
+   <ItemGroup>
+-    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="8.0.0" />
+-    <PackageReference Include="OpenTelemetry.Api" Version="1.7.0" />
++    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="10.0.0" />
++    <PackageReference Include="OpenTelemetry.Api" Version="1.15.3" />
+   </ItemGroup>
+ 
+   <ItemGroup>
+diff --git a/src/Extensions/Cassandra.OpenTelemetry/OpenTelemetryRequestTracker.cs b/src/Extensions/Cassandra.OpenTelemetry/OpenTelemetryRequestTracker.cs
+index 08d3106c..66e348e4 100644
+--- a/src/Extensions/Cassandra.OpenTelemetry/OpenTelemetryRequestTracker.cs
++++ b/src/Extensions/Cassandra.OpenTelemetry/OpenTelemetryRequestTracker.cs
+@@ -134,7 +134,7 @@ namespace Cassandra.OpenTelemetry
+             }
+ 
+             activity.SetStatus(ActivityStatusCode.Error, ex.Message);
+-            activity.RecordException(ex);
++            activity.AddException(ex);
+ 
+             activity.Dispose();
+ 
+@@ -183,7 +183,7 @@ namespace Cassandra.OpenTelemetry
+             }
+ 
+             activity.SetStatus(ActivityStatusCode.Error, ex.Message);
+-            activity.RecordException(ex);
++            activity.AddException(ex);
+ 
+             activity.Dispose();
+ 
