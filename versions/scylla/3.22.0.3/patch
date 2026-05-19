@@ -1,0 +1,54 @@
+diff --git a/src/Cassandra.IntegrationTests/Linq/LinqTable/CreateTable.cs b/src/Cassandra.IntegrationTests/Linq/LinqTable/CreateTable.cs
+index 15e43ca2..b8178757 100644
+--- a/src/Cassandra.IntegrationTests/Linq/LinqTable/CreateTable.cs
++++ b/src/Cassandra.IntegrationTests/Linq/LinqTable/CreateTable.cs
+@@ -419,7 +419,7 @@ namespace Cassandra.IntegrationTests.Linq.LinqTable
+             VerifyStatement(
+                 QueryType.Query,
+                 $"CREATE KEYSPACE \"{newUniqueKsName}\" " +
+-                "WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : '1'}" +
++                "WITH replication = {'class' : 'NetworkTopologyStrategy', 'replication_factor' : '1'}" +
+                 " AND durable_writes = true",
+                 1);
+
+diff --git a/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeMetadataSyncTests.cs b/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeMetadataSyncTests.cs
+index cabb4d74..cbe0f560 100644
+--- a/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeMetadataSyncTests.cs
++++ b/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeMetadataSyncTests.cs
+@@ -131,7 +131,8 @@ namespace Cassandra.IntegrationTests.MetadataTests
+
+                 Assert.AreEqual(3, newCluster.Metadata.Hosts.Count(h => h.IsUp));
+                 var oldTokenMap = newCluster.Metadata.TokenToReplicasMap;
+-                var alterKeyspaceCql = $"ALTER KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 2}}";
++                var localDc = newCluster.AllHosts().First().Datacenter;
++                var alterKeyspaceCql = $"ALTER KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', '{localDc}' : 2}}";
+                 newSession.Execute(alterKeyspaceCql);
+                 TestUtils.WaitForSchemaAgreement(newCluster);
+                 TestHelper.RetryAssert(() =>
+diff --git a/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeTests.cs b/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeTests.cs
+index 5e018434..14f7018a 100644
+--- a/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeTests.cs
++++ b/src/Cassandra.IntegrationTests/MetadataTests/TokenMapSchemaChangeTests.cs
+@@ -101,7 +101,8 @@ namespace Cassandra.IntegrationTests.MetadataTests
+
+             Assert.AreEqual(3, newCluster.Metadata.Hosts.Count(h => h.IsUp));
+             var oldTokenMap = newCluster.Metadata.TokenToReplicasMap;
+-            var alterKeyspaceCql = $"ALTER KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', 'replication_factor' : 2}}";
++            var localDc = newCluster.AllHosts().First().Datacenter;
++            var alterKeyspaceCql = $"ALTER KEYSPACE {keyspaceName} WITH replication = {{'class': 'NetworkTopologyStrategy', '{localDc}' : 2}}";
+             newSession.Execute(alterKeyspaceCql);
+             TestUtils.WaitForSchemaAgreement(newCluster);
+             TestHelper.RetryAssert(() =>
+diff --git a/src/Cassandra/CqlQueryTools.cs b/src/Cassandra/CqlQueryTools.cs
+index 2ec84c89..b13c5893 100644
+--- a/src/Cassandra/CqlQueryTools.cs
++++ b/src/Cassandra/CqlQueryTools.cs
+@@ -75,7 +75,7 @@ namespace Cassandra
+         {
+             if (replication == null)
+             {
+-                replication = new Dictionary<string, string> { { "class", ReplicationStrategies.SimpleStrategy }, { "replication_factor", "1" } };
++                replication = new Dictionary<string, string> { { "class", ReplicationStrategies.NetworkTopologyStrategy }, { "replication_factor", "1" } };
+             }
+
+             return string.Format(
