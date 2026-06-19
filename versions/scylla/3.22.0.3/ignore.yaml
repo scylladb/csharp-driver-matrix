@@ -65,3 +65,5 @@ tests:
     - GetFunction_Should_Return_Most_Up_To_Date_Metadata_Via_Events
 
   flaky:
+    # due to https://github.com/scylladb/csharp-driver/issues/202
+    - TokenMap_Should_RebuildTokenMap_When_NodeIsDecommissioned
