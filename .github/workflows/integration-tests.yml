@@ -49,12 +49,45 @@ jobs:
       - name: Resolve latest driver ref
         if: ${{ inputs.driver_ref == '' }}
         id: get-driver-ref
-        uses: scylladb-actions/get-version@a1dc4fedfb5684242148020b24e4150b1fe7ad08 # v0.4.5
-        with:
-          source: github-tag
-          repo: ${{ inputs.driver_repository }}
-          filters: LAST
-          github-token: ${{ github.token }}
+        env:
+          DRIVER_REPOSITORY: ${{ inputs.driver_repository }}
+          DRIVER_TYPE: ${{ inputs.driver_type }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+
+          repository = os.environ["DRIVER_REPOSITORY"]
+          driver_type = os.environ["DRIVER_TYPE"]
+          pattern = (
+              re.compile(r"^v\d+\.\d+\.\d+\.\d+$")
+              if driver_type == "scylla"
+              else re.compile(r"^\d+\.\d+\.\d+$")
+          )
+
+          output = subprocess.check_output(
+              ["git", "ls-remote", "--tags", "--refs", f"https://github.com/{repository}.git"],
+              text=True,
+          )
+          tags = []
+          for line in output.splitlines():
+              tag = line.rsplit("/", maxsplit=1)[-1]
+              if pattern.match(tag):
+                  tags.append(tag)
+
+          if not tags:
+              raise SystemExit(f"Unable to resolve latest {driver_type} C# driver tag from {repository}")
+
+          def version_key(tag: str) -> tuple[int, ...]:
+              return tuple(int(part) for part in tag.removeprefix("v").split("."))
+
+          latest = max(tags, key=version_key)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"versions={json.dumps([latest])}\n")
+          PY
 
       - name: Select Scylla version query
         id: scylla-query

@@ -78,3 +78,10 @@ def test_integration_workflow_uploads_reports_after_failures():
     assert "test_results/" in reports["with"]["path"]
     assert "driver/**/TestResults/" in reports["with"]["path"]
     assert "~/.ccm/*/node*/logs/**" in ccm_logs["with"]["path"]
+
+
+def test_integration_workflow_resolves_scylla_driver_v_tags():
+    workflow_text = (REPO_ROOT / ".github/workflows/integration-tests.yml").read_text(encoding="utf-8")
+
+    assert r"^v\d+\.\d+\.\d+\.\d+$" in workflow_text
+    assert "git\", \"ls-remote\", \"--tags\", \"--refs\"" in workflow_text

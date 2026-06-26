@@ -46,16 +46,38 @@ def test_test_command_omits_filter_when_no_ignores(tmp_path):
     assert "--filter" not in runner._test_command("integration")
 
 
+def test_scylla_v_tag_uses_unprefixed_version_folder_name(tmp_path):
+    runner = make_runner(tmp_path, tag="v3.22.0.3")
+
+    assert runner.driver_version == "3.22.0.3"
+
+
 def test_scylla_environment_sets_net8_build_target(tmp_path):
     runner = make_runner(tmp_path, driver_type="scylla")
 
     assert runner.environment["BuildTarget"] == "net8"
+    assert runner.environment["SCYLLA_VERSION"] == "release:2026.1.3"
 
 
 def test_datastax_environment_does_not_set_build_target(tmp_path):
     runner = make_runner(tmp_path, tag="3.22.0", driver_type="datastax")
 
     assert "BuildTarget" not in runner.environment
+    assert runner.environment["SCYLLA_VERSION"] == "release:2026.1.3"
+
+
+def test_scylla_version_preserves_explicit_ccm_prefix(tmp_path):
+    runner = make_runner(tmp_path)
+    runner._scylla_version = "unstable/master:2026-06-26"
+
+    assert runner.environment["SCYLLA_VERSION"] == "unstable/master:2026-06-26"
+
+
+def test_scylla_version_preserves_local_package_version(monkeypatch, tmp_path):
+    monkeypatch.setenv("SCYLLA_UNIFIED_PACKAGE", "/tmp/scylla-unified.tar.gz")
+    runner = make_runner(tmp_path)
+
+    assert runner.environment["SCYLLA_VERSION"] == "2026.1.3"
 
 
 def test_ensure_simulacron_download_uses_argv_command(monkeypatch, tmp_path):

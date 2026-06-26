@@ -80,7 +80,7 @@ def load_ignore_tests(ignore_file: Path) -> Dict[str, List[str]]:
 
 class Run:
     def __init__(self, csharp_driver_git, driver_type, tag, tests, scylla_version, checkout_ref=None):
-        self.driver_version = tag.split("-", maxsplit=1)[0]
+        self.driver_version = tag.removeprefix("v").split("-", maxsplit=1)[0]
         self._full_driver_version = checkout_ref or tag
         self._csharp_driver_git = Path(csharp_driver_git)
         self._scylla_version = scylla_version
@@ -128,12 +128,21 @@ class Run:
 
     @cached_property
     def environment(self) -> Dict:
-        env = {**os.environ, "SCYLLA_VERSION": self._scylla_version}
+        env = {**os.environ, "SCYLLA_VERSION": self._scylla_version_for_ccm()}
         # For ScyllaDB driver: set BuildTarget to net8 to avoid requiring .NET 9 SDK
         # ScyllaDB driver defaults to net9 when BuildTarget is not set
         if self._driver_type == "scylla":
             env["BuildTarget"] = "net8"
         return env
+
+    def _scylla_version_for_ccm(self) -> str:
+        if (
+                self._scylla_version
+                and ":" not in self._scylla_version
+                and os.environ.get("SCYLLA_UNIFIED_PACKAGE") is None
+        ):
+            return f"release:{self._scylla_version}"
+        return self._scylla_version
 
     def _run_command(self, cmd: Sequence[str]) -> None:
         cmd = [str(arg) for arg in cmd]
