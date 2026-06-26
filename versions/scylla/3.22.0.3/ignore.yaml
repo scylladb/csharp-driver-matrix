@@ -67,3 +67,9 @@ tests:
   flaky:
     # due to https://github.com/scylladb/csharp-driver/issues/202
     - TokenMap_Should_RebuildTokenMap_When_NodeIsDecommissioned
+
+    # Scylla 2025.1 rejects LWT on tablets
+    - DeleteIf_Applied_Test
+    - InsertIfNotExists_Applied_Test
+    - UpdateIf_Applied_Test
+    - AddOpenTelemetry_MapperAndMapperAsync_SessionRequestIsParentOfNodeRequest
