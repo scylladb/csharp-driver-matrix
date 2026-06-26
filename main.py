@@ -21,10 +21,39 @@ class EmptyTestResult(Exception):
     pass
 
 
+def resolve_driver_version(repo_directory: str, checkout_ref: str, driver_type: str) -> str:
+    tag_pattern = "v[0-9]*" if driver_type == "scylla" else "[0-9]*"
+    try:
+        version = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                repo_directory,
+                "describe",
+                "--tags",
+                "--abbrev=0",
+                "--match",
+                tag_pattern,
+                checkout_ref,
+            ],
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except subprocess.CalledProcessError as exc:
+        raise ValueError(
+            f"Unable to resolve a {driver_type} C# driver version tag for ref "
+            f"'{checkout_ref}' in '{repo_directory}': {exc.output}"
+        ) from exc
+
+    if not version:
+        raise ValueError(f"Unable to resolve a driver version tag for ref '{checkout_ref}' in '{repo_directory}'")
+    return version
+
+
 def main(arguments: argparse.Namespace) -> int:
     status = 0
     results = dict()
-    driver_type = get_driver_type(arguments.csharp_driver_git)
+    driver_type = arguments.driver_type or get_driver_type(arguments.csharp_driver_git)
 
     for driver_version in arguments.versions:
         results[driver_version] = dict()
@@ -34,7 +63,8 @@ def main(arguments: argparse.Namespace) -> int:
                          driver_type=driver_type,
                          tag=driver_version,
                          tests=arguments.tests,
-                         scylla_version=arguments.scylla_version)
+                         scylla_version=arguments.scylla_version,
+                         checkout_ref=arguments.checkout_ref)
             try:
                 report = runner.run()
 
@@ -109,18 +139,28 @@ def get_arguments() -> argparse.Namespace:
                         help="Tests to run (default: integration)")
     parser.add_argument("--scylla-version", default=os.environ.get("SCYLLA_VERSION", None),
                         help="Relocatable Scylla version to use (or set via SCYLLA_VERSION env variable)")
+    parser.add_argument("--checkout-ref", default=None,
+                        help="Git ref to checkout before testing. When set, the version is resolved from this ref.")
+    parser.add_argument("--driver-type", choices=["datastax", "scylla"], default=None,
+                        help="Driver family. Defaults to deriving it from remote.origin.url.")
     parser.add_argument("--recipients",   nargs="+", default=None,
                         help="Email recipients for the test report")
     arguments = parser.parse_args()
+    if isinstance(arguments.tests, str):
+        arguments.tests = [arguments.tests]
     if not arguments.scylla_version:
         logging.error("--scylla-version is required if SCYLLA_VERSION environment variable is not set")
         sys.exit(1)
 
+    driver_type = arguments.driver_type or get_driver_type(arguments.csharp_driver_git)
+    arguments.driver_type = driver_type
     versions = str(arguments.versions).replace(" ", "")
-    if versions.isdigit():
+    if arguments.checkout_ref:
+        arguments.versions = [resolve_driver_version(arguments.csharp_driver_git, arguments.checkout_ref, driver_type)]
+    elif versions.isdigit():
         arguments.versions = extract_n_latest_repo_tags(
             repo_directory=arguments.csharp_driver_git,
-            driver_type=get_driver_type(arguments.csharp_driver_git),
+            driver_type=driver_type,
             latest_tags_size=int(versions))
     else:
         arguments.versions = versions.split(",")
