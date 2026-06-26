@@ -17,12 +17,17 @@ export CSHARP_MATRIX_DIR=${CSHARP_MATRIX_DIR:-`pwd`}
 export CSHARP_DRIVER_DIR=${CSHARP_DRIVER_DIR:-`pwd`/../datastax-csharp-driver}
 export CCM_DIR=${CCM_DIR:-`pwd`/../scylla-ccm}
 
-if [[ ! -d ${CSHARP_MATRIX_DIR} ]]; then
+if [[ ! -d "${CSHARP_MATRIX_DIR}" ]]; then
     echo -e "\e[31m\$CSHARP_MATRIX_DIR = $CSHARP_MATRIX_DIR doesn't exist\e[0m"
     echo "${help_text}"
     exit 1
 fi
-if [[ ! -d ${CCM_DIR} ]]; then
+if [[ ! -d "${CSHARP_DRIVER_DIR}" ]]; then
+    echo -e "\e[31m\$CSHARP_DRIVER_DIR = $CSHARP_DRIVER_DIR doesn't exist\e[0m"
+    echo "${help_text}"
+    exit 1
+fi
+if [[ ! -d "${CCM_DIR}" ]]; then
     echo -e "\e[31m\$CCM_DIR = $CCM_DIR doesn't exist\e[0m"
     echo "${help_text}"
     exit 1
@@ -40,7 +45,7 @@ JOB_OPTIONS=$(env | sed -n 's/^\(JOB_[^=]\+\)=.*/--env \1/p')
 AWS_OPTIONS=$(env | sed -n 's/^\(AWS_[^=]\+\)=.*/--env \1/p')
 
 # if in jenkins also mount the workspace into docker
-if [[ -d ${WORKSPACE} ]]; then
+if [[ -d ${WORKSPACE:-} ]]; then
 WORKSPACE_MNT="-v ${WORKSPACE}:${WORKSPACE}"
 else
 WORKSPACE_MNT=""
@@ -55,6 +60,20 @@ group_args=()
 for gid in $(id -G); do
     group_args+=(--group-add "$gid")
 done
+
+run_test_cmd=$(printf '%q ' "$@")
+container_cmd=$(cat <<'EOF'
+set -e
+pip install -e /scylla-ccm
+export PATH="$PATH:${HOME}/.local/bin"
+ln -sf /scylla-ccm/ccm /usr/local/bin/ccm
+set +e
+__RUN_TEST_CMD__
+status=$?
+exit "${status}"
+EOF
+)
+container_cmd=${container_cmd/__RUN_TEST_CMD__/${run_test_cmd}}
 
 docker_cmd="docker run --init --detach=true \
     ${WORKSPACE_MNT} \
@@ -84,7 +103,7 @@ docker_cmd="docker run --init --detach=true \
     -v ${HOME}/.local:${HOME}/.local \
     -v ${HOME}/.ccm:${HOME}/.ccm \
     --network=host --privileged \
-    ${DOCKER_IMAGE} bash -c 'pip install -e /scylla-ccm ; export PATH=\$PATH:\${HOME}/.local/bin ; ln -s /scylla-ccm/ccm /usr/local/bin/ccm; $*'"
+    ${DOCKER_IMAGE} bash -c $(printf '%q' "$container_cmd")"
 
 echo "Running Docker: $docker_cmd"
 container=$(eval $docker_cmd)

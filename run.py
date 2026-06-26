@@ -3,10 +3,11 @@ import logging
 import os
 import re
 import shutil
+import shlex
 import subprocess
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Sequence
 
 import yaml
 from packaging.version import Version, InvalidVersion
@@ -15,13 +16,75 @@ from configurations import test_config_map
 from processjunit import ProcessJUnit
 
 
+IGNORE_TEST_CATEGORIES = ("ignore", "flaky")
+
+
+def _empty_ignore_tests() -> Dict[str, List[str]]:
+    return {category: [] for category in IGNORE_TEST_CATEGORIES}
+
+
+def load_ignore_tests(ignore_file: Path) -> Dict[str, List[str]]:
+    if not ignore_file.is_file():
+        return _empty_ignore_tests()
+
+    text = ignore_file.read_text(encoding="utf-8")
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if re.match(r"^\s*-\s+[^'\"#\n][^#\n]*\s+#\S", line):
+            raise ValueError(
+                f"Invalid test selector in '{ignore_file}' at line {line_number}: "
+                "entries containing '#' must be quoted"
+            )
+
+    content = yaml.safe_load(text)
+    if content is None:
+        return _empty_ignore_tests()
+    if not isinstance(content, dict):
+        raise ValueError(f"The '{ignore_file}' file must contain a YAML mapping")
+
+    tests = content.get("tests")
+    if tests is None:
+        return _empty_ignore_tests()
+    if not isinstance(tests, dict):
+        raise ValueError(f"The 'tests' entry in '{ignore_file}' must be a mapping")
+
+    result = _empty_ignore_tests()
+    seen = set()
+    invalid_entries = []
+    duplicates = []
+    for category in IGNORE_TEST_CATEGORIES:
+        entries = tests.get(category) or []
+        if not isinstance(entries, list):
+            raise ValueError(f"The 'tests.{category}' entry in '{ignore_file}' must be a list")
+
+        for index, test_name in enumerate(entries, start=1):
+            if not isinstance(test_name, str) or not test_name.strip():
+                invalid_entries.append(f"{category}[{index}]")
+                continue
+            test_name = test_name.strip()
+            if test_name in seen:
+                duplicates.append(test_name)
+                continue
+            seen.add(test_name)
+            result[category].append(test_name)
+
+    if invalid_entries or duplicates:
+        details = []
+        if invalid_entries:
+            details.append(f"empty or non-string entries at indexes: {', '.join(invalid_entries)}")
+        if duplicates:
+            details.append(f"duplicate entries: {', '.join(duplicates)}")
+        raise ValueError(f"Invalid ignore tests in '{ignore_file}': {'; '.join(details)}")
+
+    return result
+
+
 class Run:
-    def __init__(self, csharp_driver_git, driver_type, tag, tests, scylla_version):
+    def __init__(self, csharp_driver_git, driver_type, tag, tests, scylla_version, checkout_ref=None):
         self.driver_version = tag.split("-", maxsplit=1)[0]
-        self._full_driver_version = tag
-        self._csharp_driver_git = csharp_driver_git
+        self._full_driver_version = checkout_ref or tag
+        self._csharp_driver_git = Path(csharp_driver_git)
         self._scylla_version = scylla_version
-        self._tests = tests
+        self._tests = [tests] if isinstance(tests, str) else tests
         self._driver_type = driver_type
 
     @cached_property
@@ -53,13 +116,11 @@ class Run:
     @cached_property
     def ignore_tests(self) -> Dict[str, List[str]]:
         ignore_file = self.version_folder / "ignore.yaml"
-        if not ignore_file.exists():
+        if not ignore_file.is_file():
             logging.info("Cannot find ignore file for version '%s'", self.driver_version)
-            return {}
+            return _empty_ignore_tests()
 
-        with ignore_file.open(mode="r", encoding="utf-8") as file:
-            content = yaml.safe_load(file)
-        ignore_tests = content.get("tests", {'ignore': [], 'flaky': []})
+        ignore_tests = load_ignore_tests(ignore_file)
         if not ignore_tests.get("ignore", None):
             logging.info("The file '%s' for version tag '%s' doesn't contain any test to ignore",
                          ignore_file, self.driver_version)
@@ -74,19 +135,25 @@ class Run:
             env["BuildTarget"] = "net8"
         return env
 
-    def _run_command_in_shell(self, cmd: str) -> None:
-        logging.debug("Execute the cmd '%s'", cmd)
-        with subprocess.Popen(cmd, shell=True, executable="/bin/bash", env=self.environment,
-                              cwd=self._csharp_driver_git, stderr=subprocess.PIPE) as proc:
+    def _run_command(self, cmd: Sequence[str]) -> None:
+        cmd = [str(arg) for arg in cmd]
+        logging.debug("Execute the cmd '%s'", shlex.join(cmd))
+        with subprocess.Popen(cmd, env=self.environment, cwd=self._csharp_driver_git,
+                              stderr=subprocess.PIPE, text=True) as proc:
             _, stderr = proc.communicate()
         if proc.returncode != 0:
-            raise subprocess.CalledProcessError(proc.returncode, cmd, stderr)
+            raise subprocess.CalledProcessError(proc.returncode, cmd, stderr=stderr)
+
+    def _call_command(self, cmd: Sequence[str], env: Optional[Dict[str, str]] = None) -> int:
+        cmd = [str(arg) for arg in cmd]
+        logging.info("Running the command '%s'", shlex.join(cmd))
+        return subprocess.call(cmd, env=env or self.environment, cwd=self._csharp_driver_git)
 
     def _checkout_branch(self) -> bool:
         try:
-            self._run_command_in_shell("git checkout .")
+            self._run_command(["git", "checkout", "."])
             logging.info("git checkout to '%s' tag branch", self._full_driver_version)
-            self._run_command_in_shell(f"git checkout {self._full_driver_version}")
+            self._run_command(["git", "checkout", self._full_driver_version])
             return True
         except Exception as exc:
             logging.error("Failed to branch for version '%s', with: '%s'", self.driver_version, str(exc))
@@ -97,18 +164,18 @@ class Run:
             if file_path.name.startswith("patch"):
                 try:
                     logging.info("Show patch's statistics for file '%s'", file_path)
-                    self._run_command_in_shell(f"git apply --stat {file_path}")
+                    self._run_command(["git", "apply", "--stat", file_path])
                     logging.info("Detect patch's errors for file '%s'", file_path)
-                    self._run_command_in_shell(f"git apply --check {file_path}")
+                    self._run_command(["git", "apply", "--check", file_path])
                 except subprocess.CalledProcessError as exc:
-                        if 'tests/integration/conftest.py' in exc.stderr.decode():
-                            self._run_command_in_shell(f"rm tests/integration/conftest.py")
-                        else:
-                            logging.exception(
-                                "Failed to apply patch '%s' to version '%s'", file_path, self.driver_version)
-                        raise
+                    if "tests/integration/conftest.py" in (exc.stderr or ""):
+                        (self._csharp_driver_git / "tests/integration/conftest.py").unlink()
+                    else:
+                        logging.exception(
+                            "Failed to apply patch '%s' to version '%s'", file_path, self.driver_version)
+                    raise
                 logging.info("Applying patch file '%s'", file_path)
-                self._run_command_in_shell(f"patch -p1 -i {file_path}")
+                self._run_command(["patch", "-p1", "-i", file_path])
         return True
 
     @cached_property
@@ -141,13 +208,48 @@ class Run:
         if not simulacron_path.exists():
             logging.info("Simulacron version %s is not found. Downloading to %s.", version, str(simulacron_path))
             try:
-                self._run_command_in_shell(
-                    f"curl -sL -o {simulacron_path} "
-                    f"https://github.com/datastax/simulacron/releases/download/{version}/simulacron-standalone-{version}.jar")
+                self._run_command(
+                    [
+                        "curl",
+                        "-sL",
+                        "-o",
+                        simulacron_path,
+                        f"https://github.com/datastax/simulacron/releases/download/{version}/simulacron-standalone-{version}.jar",
+                    ])
             except Exception as exc:
                 logging.error("Failed to download Simulacron: %s", str(exc))
                 raise
         return str(simulacron_path)
+
+    def _restore_dotnet_dependencies(self) -> None:
+        for project in sorted((self._csharp_driver_git / "src").glob("**/*.csproj")):
+            self._call_command(["dotnet", "restore", project])
+
+    def _setup_development_snk(self) -> None:
+        snk_file = self._csharp_driver_git / "build/scylladb.snk"
+        if not snk_file.is_file():
+            shutil.copyfile(self._csharp_driver_git / "build/scylladb-dev.snk", snk_file)
+
+    def _ignore_filter(self) -> str:
+        ignore_tests = " & ".join(
+            f"FullyQualifiedName!~{test}" for test in self.ignore_tests.get("ignore") or [])
+        return f"({ignore_tests})" if ignore_tests else ""
+
+    def _test_command(self, test: str) -> List[str]:
+        test_config = test_config_map[test]
+        cmd = ["dotnet", "test", test_config.test_project]
+        cmd.extend(shlex.split(test_config.test_command_args))
+        cmd.extend(["-l", f"junit;LogFilePath={self.junit_dir / self.junit_file}"])
+        if ignore_filter := self._ignore_filter():
+            cmd.extend(["--filter", ignore_filter])
+        return cmd
+
+    def _test_environment(self, simulacron_path: str) -> Dict[str, str]:
+        return {
+            **self.environment,
+            "SIMULACRON_PATH": simulacron_path,
+            "CCM_DISTRIBUTION": "scylla",
+        }
 
     def run(self) -> ProcessJUnit | None:
         junit = ProcessJUnit(self.junit_dir / self.junit_file, self.driver_version, self.ignore_tests)
@@ -158,38 +260,18 @@ class Run:
             for test in self._tests:
                 test_config = test_config_map[test]
                 logging.info("Add JUnit logger for tests %s.", test)
-                add_junit_logger_cmd = f'dotnet add {test_config.test_project} package JUnitXml.TestLogger'
-                logging.info("Running the command '%s'", add_junit_logger_cmd)
-                subprocess.call(f"{add_junit_logger_cmd}", shell=True, executable="/bin/bash",
-                                env=self.environment, cwd=self._csharp_driver_git)
+                self._call_command(["dotnet", "add", test_config.test_project, "package", "JUnitXml.TestLogger"])
 
                 logging.info("Restore dotnet dependencies to finish all lazy initialization before tests are started.")
-                restore_cmd = "find src/ -name '*.csproj' -exec dotnet restore {} \\;"
-                logging.info("Running the command '%s'", restore_cmd)
-                subprocess.call(f"{restore_cmd}", shell=True, executable="/bin/bash",
-                                env=self.environment, cwd=self._csharp_driver_git)
+                self._restore_dotnet_dependencies()
 
                 # For ScyllaDB driver, ensure development SNK is set up before running tests
                 if self._driver_type == "scylla":
                     logging.info("Setting up development SNK for ScyllaDB driver")
-                    snk_cmd = "[ -f build/scylladb.snk ] || cp build/scylladb-dev.snk build/scylladb.snk"
-                    logging.info("Running the command '%s'", snk_cmd)
-                    subprocess.call(f"{snk_cmd}", shell=True, executable="/bin/bash",
-                                    env=self.environment, cwd=self._csharp_driver_git)
+                    self._setup_development_snk()
 
                 logging.info("Run tests for tag '%s'", test)
-                junit_logger = f'-l "junit;LogFilePath={self.junit_dir / self.junit_file}"'
-                ignore_tests = " & ".join(
-                    f"FullyQualifiedName!~{test}" for test in self.ignore_tests.get("ignore") or [])
-                ignore_filter = f"({ignore_tests})" if ignore_tests else ""
-
-                test_cmd = (
-                    f'SIMULACRON_PATH={simulacron_path} '
-                    f'CCM_DISTRIBUTION=scylla dotnet test {test_config.test_project} {test_config.test_command_args} {junit_logger} '
-                    f'--filter "{ignore_filter}"')
-                logging.info("Running the command '%s'", test_cmd)
-                subprocess.call(f"{test_cmd}", shell=True, executable="/bin/bash",
-                                env=self.environment, cwd=self._csharp_driver_git)
+                self._call_command(self._test_command(test), env=self._test_environment(simulacron_path))
             junit.save_after_analysis()
 
             try:

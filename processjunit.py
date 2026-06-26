@@ -51,7 +51,9 @@ class ProcessJUnit:
                 if key == "failures" and testcase_keys[key] > 0 and self.ignore_set:
                     testcase_keys[key] = filter_out_ignored_failed_test()
 
-            # rust does not report "skipped" in the <testsuite> summary
+            testcase_keys["ignored_on_failure"] += sum(1 for _ in testsuite_element.iter("ignored_on_failure"))
+
+            # Some test loggers do not report "skipped" in the <testsuite> summary.
             if skipped := testsuite_element.iter("skipped"):
                 testcase_keys["skipped"] = sum(1 for _ in skipped)
 
@@ -98,22 +100,22 @@ class ProcessJUnit:
         for testsuite_element in tree.iter("testsuite"):
             testsuit_child = ElementTree.SubElement(new_tree, "testsuite", attrib=testsuite_element.attrib)
             for element in testsuite_element.iter("testcase"):
-                testcase_element = ElementTree.SubElement(testsuit_child, "testcase", attrib=element.attrib)
-                if len(list(element.iter())) == 2:
-                    element_test_details = list(element.iter())[1]
-                    tag_name = element_test_details.tag
-                    if (element_test_details.tag == "failure" and
+                testcase_attrib = dict(element.attrib)
+                if classname := testcase_attrib.get("classname"):
+                    testcase_attrib["classname"] = f"{self.tag}.{classname}"
+                testcase_element = ElementTree.SubElement(testsuit_child, "testcase", attrib=testcase_attrib)
+                for element_test_details in list(element):
+                    new_element_test_details = deepcopy(element_test_details)
+                    if (new_element_test_details.tag == "failure" and
                             element.attrib.get("name") in flaky_tests):
                         logging.info("Flaky test '%s' failed for %s driver version - marking as ignored. Failure message: %s",
-                                     element.attrib.get("name"), self.tag, element_test_details.text)
+                                     element.attrib.get("name"), self.tag, new_element_test_details.text)
                         # Change tag name to prevent test failure
-                        tag_name = "ignored_on_failure"
-                        # Decrease amount of failed tests that its failure is expected for the rust driver version
+                        new_element_test_details.tag = "ignored_on_failure"
+                        # Decrease amount of failed tests whose failure is expected for this driver version.
                         testsuit_child.attrib["failures"] = str(int(testsuit_child.attrib["failures"]) - 1)
 
-                    new_element_test_details = ElementTree.SubElement(
-                        testcase_element, tag_name, attrib=element_test_details.attrib)
-                    new_element_test_details.text = element_test_details.text
+                    testcase_element.append(new_element_test_details)
 
         with self.tests_result_xml.open(mode="w", encoding="utf-8") as file:
             file.write(minidom.parseString(
