@@ -29,7 +29,12 @@ def load_ignore_tests(ignore_file: Path) -> Dict[str, List[str]]:
 
     text = ignore_file.read_text(encoding="utf-8")
     for line_number, line in enumerate(text.splitlines(), start=1):
-        if re.match(r"^\s*-\s+[^'\"#\n][^#\n]*\s+#\S", line):
+        stripped = line.lstrip()
+        if not stripped.startswith("-"):
+            continue
+
+        entry = stripped[1:].lstrip()
+        if entry and not entry.startswith(('"', "'", "#")) and "#" in entry:
             raise ValueError(
                 f"Invalid test selector in '{ignore_file}' at line {line_number}: "
                 "entries containing '#' must be quoted"
@@ -189,7 +194,7 @@ class Run:
 
     @cached_property
     def junit_dir(self) -> Path:
-        dir_path = Path.cwd() / "test_results" / self.driver_version
+        dir_path = Path(__file__).parent / "test_results" / self.driver_version
         if dir_path.exists():
             shutil.rmtree(dir_path)
         return dir_path
@@ -263,34 +268,38 @@ class Run:
     def run(self) -> ProcessJUnit | None:
         junit = ProcessJUnit(self.junit_dir / self.junit_file, self.driver_version, self.ignore_tests)
         logging.info("Changing the current working directory to the '%s' path", self._csharp_driver_git)
-        os.chdir(self._csharp_driver_git)
-        if self._checkout_branch() and self._apply_patch_files():
-            simulacron_path = self.ensure_simulacron()
-            for test in self._tests:
-                test_config = test_config_map[test]
-                logging.info("Add JUnit logger for tests %s.", test)
-                self._call_command(["dotnet", "add", test_config.test_project, "package", "JUnitXml.TestLogger"])
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(self._csharp_driver_git)
+            if self._checkout_branch() and self._apply_patch_files():
+                simulacron_path = self.ensure_simulacron()
+                for test in self._tests:
+                    test_config = test_config_map[test]
+                    logging.info("Add JUnit logger for tests %s.", test)
+                    self._call_command(["dotnet", "add", test_config.test_project, "package", "JUnitXml.TestLogger"])
 
-                logging.info("Restore dotnet dependencies to finish all lazy initialization before tests are started.")
-                self._restore_dotnet_dependencies()
+                    logging.info("Restore dotnet dependencies to finish all lazy initialization before tests are started.")
+                    self._restore_dotnet_dependencies()
 
-                # For ScyllaDB driver, ensure development SNK is set up before running tests
-                if self._driver_type == "scylla":
-                    logging.info("Setting up development SNK for ScyllaDB driver")
-                    self._setup_development_snk()
+                    # For ScyllaDB driver, ensure development SNK is set up before running tests
+                    if self._driver_type == "scylla":
+                        logging.info("Setting up development SNK for ScyllaDB driver")
+                        self._setup_development_snk()
 
-                logging.info("Run tests for tag '%s'", test)
-                self._call_command(self._test_command(test), env=self._test_environment(simulacron_path))
-            junit.save_after_analysis()
+                    logging.info("Run tests for tag '%s'", test)
+                    self._call_command(self._test_command(test), env=self._test_environment(simulacron_path))
+                junit.save_after_analysis()
 
-            try:
-                metadata_file = self.junit_dir / self.metadata_file_name
-                metadata_file.write_text(json.dumps({
-                    "driver_name": self.junit_file.replace(".xml", ""),
-                    "driver_type": "csharp",
-                    "junit_result": f"./{self.junit_file}",
-                }))
-            except Exception as e:
-                logging.error("Failed to write metadata: %s", str(e))
+                try:
+                    metadata_file = self.junit_dir / self.metadata_file_name
+                    metadata_file.write_text(json.dumps({
+                        "driver_name": self.junit_file.replace(".xml", ""),
+                        "driver_type": "csharp",
+                        "junit_result": f"./{self.junit_file}",
+                    }))
+                except Exception as e:
+                    logging.error("Failed to write metadata: %s", str(e))
+        finally:
+            os.chdir(original_cwd)
 
         return junit

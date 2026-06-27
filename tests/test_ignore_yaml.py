@@ -10,13 +10,14 @@ sys.path.insert(0, str(REPO_ROOT))
 from run import load_ignore_tests
 
 
-def test_load_ignore_tests_rejects_unquoted_method_selector(tmp_path):
+@pytest.mark.parametrize("selector", ["DriverIT #should_fail", "DriverIT # should_fail"])
+def test_load_ignore_tests_rejects_unquoted_method_selector(tmp_path, selector):
     ignore_file = tmp_path / "ignore.yaml"
     ignore_file.write_text(
-        """\
+        f"""\
 tests:
   ignore:
-    - DriverIT #should_fail
+    - {selector}
   flaky: []
 """,
         encoding="utf-8",
