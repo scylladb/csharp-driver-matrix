@@ -51,11 +51,16 @@ class ProcessJUnit:
                 if key == "failures" and testcase_keys[key] > 0 and self.ignore_set:
                     testcase_keys[key] = filter_out_ignored_failed_test()
 
-            testcase_keys["ignored_on_failure"] += sum(1 for _ in testsuite_element.iter("ignored_on_failure"))
+            testcase_keys["ignored_on_failure"] += sum(
+                1
+                for testcase in testsuite_element.iter("testcase")
+                if list(testcase.iter("ignored_on_failure"))
+            )
 
             # Some test loggers do not report "skipped" in the <testsuite> summary.
-            if skipped := testsuite_element.iter("skipped"):
-                testcase_keys["skipped"] = sum(1 for _ in skipped)
+            skipped = list(testsuite_element.iter("skipped"))
+            if skipped:
+                testcase_keys["skipped"] = len(skipped)
 
             for key in testcase_keys:
                 testsuite_summary_keys[key] += testcase_keys[key]
@@ -104,16 +109,22 @@ class ProcessJUnit:
                 if classname := testcase_attrib.get("classname"):
                     testcase_attrib["classname"] = f"{self.tag}.{classname}"
                 testcase_element = ElementTree.SubElement(testsuit_child, "testcase", attrib=testcase_attrib)
+                testcase_details = list(element)
+                flaky_failure = (
+                    element.attrib.get("name") in flaky_tests
+                    and any(detail.tag == "failure" for detail in testcase_details)
+                )
+                if flaky_failure:
+                    testsuit_child.attrib["failures"] = str(
+                        max(int(testsuit_child.attrib.get("failures", "0")) - 1, 0)
+                    )
                 for element_test_details in list(element):
                     new_element_test_details = deepcopy(element_test_details)
-                    if (new_element_test_details.tag == "failure" and
-                            element.attrib.get("name") in flaky_tests):
+                    if new_element_test_details.tag == "failure" and flaky_failure:
                         logging.info("Flaky test '%s' failed for %s driver version - marking as ignored. Failure message: %s",
                                      element.attrib.get("name"), self.tag, new_element_test_details.text)
                         # Change tag name to prevent test failure
                         new_element_test_details.tag = "ignored_on_failure"
-                        # Decrease amount of failed tests whose failure is expected for this driver version.
-                        testsuit_child.attrib["failures"] = str(int(testsuit_child.attrib["failures"]) - 1)
 
                     testcase_element.append(new_element_test_details)
 

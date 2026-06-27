@@ -52,6 +52,25 @@ def test_scylla_v_tag_uses_unprefixed_version_folder_name(tmp_path):
     assert runner.driver_version == "3.22.0.3"
 
 
+def test_junit_dir_uses_matrix_repo_root_when_cwd_changes(monkeypatch, tmp_path):
+    runner = make_runner(tmp_path, tag="9.9.9.9")
+
+    monkeypatch.chdir(tmp_path)
+
+    assert runner.junit_dir == REPO_ROOT / "test_results" / "9.9.9.9"
+
+
+def test_run_restores_original_cwd(monkeypatch, tmp_path):
+    runner = make_runner(tmp_path, tag="9.9.9.8")
+    runner.__dict__["ignore_tests"] = {"ignore": [], "flaky": []}
+    monkeypatch.setattr(runner, "_checkout_branch", lambda: False)
+    original_cwd = Path.cwd()
+
+    runner.run()
+
+    assert Path.cwd() == original_cwd
+
+
 def test_scylla_environment_sets_net8_build_target(tmp_path):
     runner = make_runner(tmp_path, driver_type="scylla")
 
