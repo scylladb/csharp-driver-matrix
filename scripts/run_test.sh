@@ -22,10 +22,13 @@ if [[ ! -d "${CSHARP_MATRIX_DIR}" ]]; then
     echo "${help_text}"
     exit 1
 fi
-if [[ ! -d "${CSHARP_DRIVER_DIR}" ]]; then
-    echo -e "\e[31m\$CSHARP_DRIVER_DIR = $CSHARP_DRIVER_DIR doesn't exist\e[0m"
-    echo "${help_text}"
-    exit 1
+# Mount the driver source only when it exists locally. In CI the driver is
+# passed as an absolute path argument and reached via the workspace mount, so
+# CSHARP_DRIVER_DIR is left unset and its default path may not exist.
+if [[ -d "${CSHARP_DRIVER_DIR}" ]]; then
+    CSHARP_DRIVER_MNT="-v ${CSHARP_DRIVER_DIR}:/datastax-csharp-driver"
+else
+    CSHARP_DRIVER_MNT=""
 fi
 if [[ ! -d "${CCM_DIR}" ]]; then
     echo -e "\e[31m\$CCM_DIR = $CCM_DIR doesn't exist\e[0m"
@@ -80,7 +83,7 @@ docker_cmd="docker run --init --detach=true \
     ${SCYLLA_OPTIONS} \
     ${DOCKER_CONFIG_MNT} \
     -v ${CSHARP_MATRIX_DIR}:/csharp-driver-matrix \
-    -v ${CSHARP_DRIVER_DIR}:/datastax-csharp-driver \
+    ${CSHARP_DRIVER_MNT} \
     -v ${CCM_DIR}:/scylla-ccm \
     -e HOME \
     -e SCYLLA_EXT_OPTS \
