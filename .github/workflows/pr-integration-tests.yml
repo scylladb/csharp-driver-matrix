@@ -93,30 +93,7 @@ jobs:
   current-workflow:
     needs: changes
     if: ${{ needs.changes.outputs.runner_changed == 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - driver_type: datastax
-            driver_repository: datastax/csharp-driver
-            scylla_version: LATEST
-          - driver_type: scylla
-            driver_repository: scylladb/csharp-driver
-            scylla_version: LATEST
-          - driver_type: scylla
-            driver_repository: scylladb/csharp-driver
-            scylla_version: PRIOR
-          - driver_type: scylla
-            driver_repository: scylladb/csharp-driver
-            scylla_version: LTS-LATEST
-          - driver_type: scylla
-            driver_repository: scylladb/csharp-driver
-            scylla_version: LTS-PRIOR
-    uses: ./.github/workflows/integration-tests.yml
-    with:
-      driver_repository: ${{ matrix.driver_repository }}
-      driver_type: ${{ matrix.driver_type }}
-      scylla_version: ${{ matrix.scylla_version }}
+    uses: ./.github/workflows/driver-integration-matrix.yml
 
   changed-driver-version-tests:
     needs: changes
@@ -129,4 +106,5 @@ jobs:
       driver_repository: ${{ matrix.driver_repository }}
       driver_type: ${{ matrix.driver_type }}
       driver_ref: ${{ matrix.driver_ref }}
-      scylla_version: LATEST
+      driver_version: ${{ matrix.driver_version }}
+      scylla_version: ${{ matrix.scylla_version || 'LATEST' }}

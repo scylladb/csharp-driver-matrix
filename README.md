@@ -1,5 +1,40 @@
 # C# Driver Matrix
 
+## Pre-release integration gate
+
+The reusable workflow `.github/workflows/driver-integration-matrix.yml` runs the
+same five lanes as this repository's PR CI: DataStax C# driver against Scylla
+`LATEST`, plus Scylla C# driver against `LATEST`, `PRIOR`, `LTS-LATEST`, and
+`LTS-PRIOR`. Set `run_datastax` or `run_scylla` to `false` to disable that driver
+group. A Scylla release caller can pass an untagged commit and its intended
+version so the runner selects the matching patch and ignore files.
+
+For example, add this job to `scylladb/csharp-driver`'s publish wrapper workflow
+and make its existing `release` job depend on it:
+
+```yaml
+jobs:
+  pre-release-integration:
+    uses: scylladb/csharp-driver-matrix/.github/workflows/driver-integration-matrix.yml@master
+    with:
+      driver_ref: ${{ inputs.target_commit }}
+      driver_version: ${{ inputs.version }}
+
+  release:
+    needs: pre-release-integration
+    # Existing release job configuration follows.
+```
+
+The release call checks out matrix `master` for the runner and patches. The
+`driver_ref` should match the driver commit the release workflow checks out.
+For a re-release, use the predecessor of the existing tag if that is the
+release workflow's checkout target.
+
+For a candidate version without a tag, add its `versions/scylla/<version>`
+patch and ignore files. To validate that candidate in this repository's PR CI,
+add a `checkout-ref` file in that directory containing the driver branch or
+commit to test; the candidate then runs against all four Scylla targets.
+
 ## Prerequisites
 Ensure the following are installed before proceeding:
 * Python3.12
