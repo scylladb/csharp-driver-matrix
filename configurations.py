@@ -13,7 +13,7 @@ class TestConfiguration:
 integration_tests = TestConfiguration(
     tags=["integration"],
     test_project='src/Cassandra.IntegrationTests/Cassandra.IntegrationTests.csproj',
-    test_command_args='-f net8 -l "console;verbosity=detailed"',
+    test_command_args='-l "console;verbosity=detailed"',
     cluster_configuration={})
 
 test_config_map = {

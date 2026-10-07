@@ -40,6 +40,10 @@ fi
 # installed by the workflow so the container uses the checked-out driver's
 # global.json without changing the image used by the DataStax matrix.
 DOTNET_MNT=""
+if [[ "${DRIVER_TYPE:-}" == "scylla" && ( -z "${DOTNET_INSTALL_DIR:-}" || ! -x "${DOTNET_INSTALL_DIR}/dotnet" ) ]]; then
+    echo "Scylla driver SDK is missing from DOTNET_INSTALL_DIR" >&2
+    exit 1
+fi
 if [[ -n "${DOTNET_INSTALL_DIR:-}" && -x "${DOTNET_INSTALL_DIR}/dotnet" ]]; then
     DOTNET_MNT="-v ${DOTNET_INSTALL_DIR}:/opt/driver-dotnet:ro -e DOTNET_ROOT=/opt/driver-dotnet"
 fi

@@ -12,7 +12,7 @@ from run import Run
 
 def make_runner(tmp_path, tag="3.22.0.3", checkout_ref=None, driver_type="scylla"):
     driver = tmp_path / "driver repo"
-    driver.mkdir()
+    driver.mkdir(exist_ok=True)
     return Run(
         csharp_driver_git=driver,
         driver_type=driver_type,
@@ -34,6 +34,7 @@ def test_test_command_keeps_filter_as_one_argv_entry(tmp_path):
         "test",
         "src/Cassandra.IntegrationTests/Cassandra.IntegrationTests.csproj",
     ]
+    assert cmd[cmd.index("-f") + 1] == "net9"
     assert cmd[cmd.index("--filter") + 1] == (
         "(FullyQualifiedName!~BadTest; echo unsafe & FullyQualifiedName!~OtherTest)"
     )
@@ -71,11 +72,18 @@ def test_run_restores_original_cwd(monkeypatch, tmp_path):
     assert Path.cwd() == original_cwd
 
 
-def test_scylla_environment_sets_net8_build_target(tmp_path):
+def test_scylla_environment_sets_version_test_target(tmp_path):
     runner = make_runner(tmp_path, driver_type="scylla")
 
-    assert runner.environment["BuildTarget"] == "net8"
+    assert runner.environment["BuildTarget"] == "net9"
     assert runner.environment["SCYLLA_VERSION"] == "release:2026.1.3"
+
+    v4_runner = make_runner(tmp_path, tag="4.0.0.0", driver_type="scylla")
+    assert v4_runner.environment["BuildTarget"] == "net10.0"
+    assert v4_runner.version_folder.name == "4.0.0.0"
+    assert v4_runner.ignore_tests == {"ignore": [], "flaky": []}
+    command = v4_runner._test_command("integration")
+    assert command[command.index("-f") + 1] == "net10.0"
 
 
 def test_datastax_environment_does_not_set_build_target(tmp_path):
@@ -83,6 +91,8 @@ def test_datastax_environment_does_not_set_build_target(tmp_path):
 
     assert "BuildTarget" not in runner.environment
     assert runner.environment["SCYLLA_VERSION"] == "release:2026.1.3"
+    command = runner._test_command("integration")
+    assert command[command.index("-f") + 1] == "net8"
 
 
 def test_scylla_version_preserves_explicit_ccm_prefix(tmp_path):

@@ -13,6 +13,7 @@ import yaml
 from packaging.version import Version, InvalidVersion
 
 from configurations import test_config_map
+from driver_dotnet import scylla_dotnet_policy
 from processjunit import ProcessJUnit
 
 
@@ -134,11 +135,15 @@ class Run:
     @cached_property
     def environment(self) -> Dict:
         env = {**os.environ, "SCYLLA_VERSION": self._scylla_version_for_ccm()}
-        # For ScyllaDB driver: set BuildTarget to net8 to avoid requiring .NET 9 SDK
-        # ScyllaDB driver defaults to net9 when BuildTarget is not set
         if self._driver_type == "scylla":
-            env["BuildTarget"] = "net8"
+            env["BuildTarget"] = self.target_framework
         return env
+
+    @cached_property
+    def target_framework(self) -> str:
+        if self._driver_type == "scylla":
+            return scylla_dotnet_policy(self.driver_version).target_framework
+        return "net8"
 
     def _scylla_version_for_ccm(self) -> str:
         if (
@@ -252,6 +257,7 @@ class Run:
     def _test_command(self, test: str) -> List[str]:
         test_config = test_config_map[test]
         cmd = ["dotnet", "test", test_config.test_project]
+        cmd.extend(["-f", self.target_framework])
         cmd.extend(shlex.split(test_config.test_command_args))
         cmd.extend(["-l", f"junit;LogFilePath={self.junit_dir / self.junit_file}"])
         if ignore_filter := self._ignore_filter():

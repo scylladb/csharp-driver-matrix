@@ -27,6 +27,18 @@ jobs:
 
 The release call checks out matrix `master` for the runner and patches. The
 `driver_ref` should match the driver commit the release workflow checks out.
+SDK and integration test targets are selected from the Scylla driver version,
+not the branch or the presence of `global.json`:
+
+| Driver version | SDK | Integration test target |
+| --- | --- | --- |
+| `3.22.x` | `9.0.318` | `net9` |
+| `4.x` | `10.0.401` | `net10.0` |
+
+Pass `driver_version` whenever `driver_ref` is an untagged commit. A version
+outside these supported lines fails before the matrix starts. DataStax tests
+continue to use `net8` and the SDK in the published matrix image.
+
 For a re-release, use the predecessor of the existing tag if that is the
 release workflow's checkout target.
 
@@ -44,7 +56,9 @@ Ensure the following are installed before proceeding:
 
 ## Installing dependencies
 
-* Install .NET 8 SDK (version 7 and below are no longer supported)
+* Install the SDK for the driver version you intend to test. DataStax tests
+  use .NET 8; Scylla 3.22.x uses 9.0.318 and 4.x uses 10.0.401. CI installs
+  the Scylla SDK automatically.
 ```bash
 sudo apt update && sudo apt install -y dotnet-sdk-8.0
 ```
@@ -100,6 +114,7 @@ export CSHARP_DRIVER_DIR=`pwd`/../datastax-csharp-driver
 For ScyllaDB driver fork:
 ```bash
 export CSHARP_DRIVER_DIR=`pwd`/../scylladb-csharp-driver
+export DOTNET_INSTALL_DIR="$HOME/.dotnet" # Directory containing the matching SDK and dotnet executable
 ./scripts/run_test.sh python3 main.py ../scylladb-csharp-driver --tests integration --versions 3.22.0 --scylla-version release:6.2
 ```
 
