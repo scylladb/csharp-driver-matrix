@@ -46,6 +46,8 @@ For a candidate version without a tag, add its `versions/scylla/<version>`
 patch and ignore files. To validate that candidate in this repository's PR CI,
 add a `checkout-ref` file in that directory containing the driver branch or
 commit to test; the candidate then runs against all four Scylla targets.
+The `4.0.0.0` directory starts with the documented Scylla exclusions from
+`3.22.0.4`; review them before the first 4.x release.
 
 ## Prerequisites
 Ensure the following are installed before proceeding:

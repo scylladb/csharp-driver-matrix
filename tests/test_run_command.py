@@ -81,7 +81,7 @@ def test_scylla_environment_sets_version_test_target(tmp_path):
     v4_runner = make_runner(tmp_path, tag="4.0.0.0", driver_type="scylla")
     assert v4_runner.environment["BuildTarget"] == "net10.0"
     assert v4_runner.version_folder.name == "4.0.0.0"
-    assert v4_runner.ignore_tests == {"ignore": [], "flaky": []}
+    assert "ClientWarningsTests" in v4_runner.ignore_tests["ignore"]
     command = v4_runner._test_command("integration")
     assert command[command.index("-f") + 1] == "net10.0"
 
