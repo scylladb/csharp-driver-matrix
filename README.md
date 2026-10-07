@@ -27,6 +27,22 @@ jobs:
 
 The release call checks out matrix `master` for the runner and patches. The
 `driver_ref` should match the driver commit the release workflow checks out.
+SDK and integration test targets are selected from the Scylla driver version,
+not the branch or the presence of `global.json`:
+
+| Driver version | SDK | Integration test target |
+| --- | --- | --- |
+| `3.22.0.1` | `9.0.318` | `net8` |
+| `3.22.0.2` and later `3.22.x` | `9.0.318` | `net9` |
+| `4.x` | `10.0.401` | `net10.0` |
+
+Pass `driver_version` whenever `driver_ref` is an untagged commit. A version
+outside these supported lines fails before the matrix starts. DataStax tests
+continue to use `net8` and the SDK in the published matrix image.
+The SDK policy recognizes `3.22.0.1`, but running its integration suite also
+requires a version-specific patch and ignore directory, which is not currently
+present in this repository.
+
 For a re-release, use the predecessor of the existing tag if that is the
 release workflow's checkout target.
 
@@ -34,6 +50,8 @@ For a candidate version without a tag, add its `versions/scylla/<version>`
 patch and ignore files. To validate that candidate in this repository's PR CI,
 add a `checkout-ref` file in that directory containing the driver branch or
 commit to test; the candidate then runs against all four Scylla targets.
+The `4.0.0.0` directory starts with the documented Scylla exclusions from
+`3.22.0.4`; review them before the first 4.x release.
 
 ## Prerequisites
 Ensure the following are installed before proceeding:
@@ -44,7 +62,9 @@ Ensure the following are installed before proceeding:
 
 ## Installing dependencies
 
-* Install .NET 8 SDK (version 7 and below are no longer supported)
+* Install the SDK for the driver version you intend to test. DataStax tests
+  use .NET 8; Scylla 3.22.x uses 9.0.318 and 4.x uses 10.0.401. The first
+  3.22 release also needs the net8 runtime. CI installs these automatically.
 ```bash
 sudo apt update && sudo apt install -y dotnet-sdk-8.0
 ```
@@ -100,6 +120,7 @@ export CSHARP_DRIVER_DIR=`pwd`/../datastax-csharp-driver
 For ScyllaDB driver fork:
 ```bash
 export CSHARP_DRIVER_DIR=`pwd`/../scylladb-csharp-driver
+export DOTNET_INSTALL_DIR="$HOME/.dotnet" # Directory containing the matching SDK and dotnet executable
 ./scripts/run_test.sh python3 main.py ../scylladb-csharp-driver --tests integration --versions 3.22.0 --scylla-version release:6.2
 ```
 

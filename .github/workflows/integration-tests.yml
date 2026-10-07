@@ -40,6 +40,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     env:
+      DOTNET_INSTALL_DIR: ${{ github.workspace }}/driver-dotnet
       WORKSPACE: ${{ github.workspace }}
       CCM_DIR: ${{ github.workspace }}/scylla-ccm
       CSHARP_MATRIX_DIR: ${{ github.workspace }}
@@ -232,6 +233,31 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Select driver .NET policy
+        id: driver-dotnet
+        env:
+          DRIVER_REF: ${{ steps.resolve.outputs.driver_ref }}
+          DRIVER_TYPE: ${{ inputs.driver_type }}
+          DRIVER_VERSION: ${{ inputs.driver_version }}
+        run: |
+          python3 driver_dotnet.py \
+            --driver-type "$DRIVER_TYPE" \
+            --driver-version "$DRIVER_VERSION" \
+            --driver-ref "$DRIVER_REF" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Install Scylla driver SDK
+        if: ${{ inputs.driver_type == 'scylla' }}
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: ${{ steps.driver-dotnet.outputs.sdk_version }}
+
+      - name: Install net8 runtime for the first 3.22 release
+        if: ${{ inputs.driver_type == 'scylla' && steps.driver-dotnet.outputs.target_framework == 'net8' }}
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 8.0.x
+
       - name: Restore NuGet package cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
@@ -250,7 +276,7 @@ jobs:
       - name: Run integration tests
         env:
           DRIVER_REF: ${{ steps.resolve.outputs.driver_ref }}
-          DRIVER_VERSION: ${{ inputs.driver_version }}
+          DRIVER_VERSION: ${{ steps.driver-dotnet.outputs.driver_version }}
           DRIVER_TYPE: ${{ inputs.driver_type }}
           SCYLLA_VERSION: ${{ steps.resolve.outputs.scylla_version }}
           TESTS: ${{ inputs.tests }}
