@@ -53,6 +53,15 @@ def test_scylla_v_tag_uses_unprefixed_version_folder_name(tmp_path):
     assert runner.driver_version == "3.22.0.3"
 
 
+def test_first_322_release_uses_net8_with_sdk9_policy(tmp_path):
+    runner = make_runner(tmp_path, tag="v3.22.0.1")
+    runner.__dict__["ignore_tests"] = {"ignore": [], "flaky": []}
+    command = runner._test_command("integration")
+
+    assert runner.environment["BuildTarget"] == "net8"
+    assert command[command.index("-f") + 1] == "net8"
+
+
 def test_junit_dir_uses_matrix_repo_root_when_cwd_changes(monkeypatch, tmp_path):
     runner = make_runner(tmp_path, tag="9.9.9.9")
 

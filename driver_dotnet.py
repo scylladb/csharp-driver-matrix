@@ -20,9 +20,11 @@ def scylla_dotnet_policy(version: str) -> DotnetPolicy:
     if not match:
         raise ValueError(f"Expected a Scylla driver release version, got {version!r}")
 
-    major, minor = map(int, match.group(1, 2))
+    major, minor, patch = map(int, match.group(1, 2, 3))
+    build = int(match.group(4) or 0)
     if (major, minor) == (3, 22):
-        return DotnetPolicy("9.0.318", "net9")
+        target = "net8" if (patch, build) <= (0, 1) else "net9"
+        return DotnetPolicy("9.0.318", target)
     if major == 4:
         return DotnetPolicy("10.0.401", "net10.0")
     raise ValueError(f"No .NET compatibility policy for Scylla driver {version!r}")

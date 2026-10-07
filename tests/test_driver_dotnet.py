@@ -14,7 +14,7 @@ from driver_dotnet import DotnetPolicy, scylla_dotnet_policy
 @pytest.mark.parametrize(
     ("version", "expected"),
     [
-        ("v3.22.0.1", DotnetPolicy("9.0.318", "net9")),
+        ("v3.22.0.1", DotnetPolicy("9.0.318", "net8")),
         ("3.22.0.4", DotnetPolicy("9.0.318", "net9")),
         ("3.22.0.5", DotnetPolicy("9.0.318", "net9")),
         ("4.0.0.0", DotnetPolicy("10.0.401", "net10.0")),

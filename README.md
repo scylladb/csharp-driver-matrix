@@ -32,12 +32,16 @@ not the branch or the presence of `global.json`:
 
 | Driver version | SDK | Integration test target |
 | --- | --- | --- |
-| `3.22.x` | `9.0.318` | `net9` |
+| `3.22.0.1` | `9.0.318` | `net8` |
+| `3.22.0.2` and later `3.22.x` | `9.0.318` | `net9` |
 | `4.x` | `10.0.401` | `net10.0` |
 
 Pass `driver_version` whenever `driver_ref` is an untagged commit. A version
 outside these supported lines fails before the matrix starts. DataStax tests
 continue to use `net8` and the SDK in the published matrix image.
+The SDK policy recognizes `3.22.0.1`, but running its integration suite also
+requires a version-specific patch and ignore directory, which is not currently
+present in this repository.
 
 For a re-release, use the predecessor of the existing tag if that is the
 release workflow's checkout target.
@@ -59,8 +63,8 @@ Ensure the following are installed before proceeding:
 ## Installing dependencies
 
 * Install the SDK for the driver version you intend to test. DataStax tests
-  use .NET 8; Scylla 3.22.x uses 9.0.318 and 4.x uses 10.0.401. CI installs
-  the Scylla SDK automatically.
+  use .NET 8; Scylla 3.22.x uses 9.0.318 and 4.x uses 10.0.401. The first
+  3.22 release also needs the net8 runtime. CI installs these automatically.
 ```bash
 sudo apt update && sudo apt install -y dotnet-sdk-8.0
 ```
