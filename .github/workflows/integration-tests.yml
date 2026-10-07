@@ -234,7 +234,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Scylla driver SDK and net8 runtime
-        if: ${{ inputs.driver_type == 'scylla' }}
+        if: ${{ inputs.driver_type == 'scylla' && hashFiles('driver/global.json') != '' }}
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: driver/global.json
