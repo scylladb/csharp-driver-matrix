@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     env:
-      DOTNET_INSTALL_DIR: ${{ runner.temp }}/driver-dotnet
+      DOTNET_INSTALL_DIR: ${{ github.workspace }}/driver-dotnet
       WORKSPACE: ${{ github.workspace }}
       CCM_DIR: ${{ github.workspace }}/scylla-ccm
       CSHARP_MATRIX_DIR: ${{ github.workspace }}
