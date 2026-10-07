@@ -141,11 +141,15 @@ def get_arguments() -> argparse.Namespace:
                         help="Relocatable Scylla version to use (or set via SCYLLA_VERSION env variable)")
     parser.add_argument("--checkout-ref", default=None,
                         help="Git ref to checkout before testing. When set, the version is resolved from this ref.")
+    parser.add_argument("--driver-version", default=None,
+                        help="Version used to select matrix patches and ignores for --checkout-ref, even when that ref is untagged.")
     parser.add_argument("--driver-type", choices=["datastax", "scylla"], default=None,
                         help="Driver family. Defaults to deriving it from remote.origin.url.")
     parser.add_argument("--recipients",   nargs="+", default=None,
                         help="Email recipients for the test report")
     arguments = parser.parse_args()
+    if arguments.driver_version and not arguments.checkout_ref:
+        parser.error("--driver-version requires --checkout-ref")
     if isinstance(arguments.tests, str):
         arguments.tests = [arguments.tests]
     if not arguments.scylla_version:
@@ -155,7 +159,9 @@ def get_arguments() -> argparse.Namespace:
     driver_type = arguments.driver_type or get_driver_type(arguments.csharp_driver_git)
     arguments.driver_type = driver_type
     versions = str(arguments.versions).replace(" ", "")
-    if arguments.checkout_ref:
+    if arguments.driver_version:
+        arguments.versions = [arguments.driver_version]
+    elif arguments.checkout_ref:
         arguments.versions = [resolve_driver_version(arguments.csharp_driver_git, arguments.checkout_ref, driver_type)]
     elif versions.isdigit():
         arguments.versions = extract_n_latest_repo_tags(

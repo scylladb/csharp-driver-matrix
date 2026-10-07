@@ -1,0 +1,51 @@
+name: C# Driver Integration Matrix
+
+on:
+  workflow_call:
+    inputs:
+      run_datastax:
+        description: Run DataStax C# driver against Scylla LATEST.
+        required: false
+        type: boolean
+        default: true
+      run_scylla:
+        description: Run Scylla C# driver against all four Scylla targets.
+        required: false
+        type: boolean
+        default: true
+      driver_ref:
+        description: Scylla driver commit SHA to test; latest tag when empty.
+        required: false
+        type: string
+        default: ""
+      driver_version:
+        description: Version used for Scylla driver patches and ignores; resolved from the tag when empty.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  datastax-integration-tests:
+    if: ${{ inputs.run_datastax }}
+    uses: $/.github/workflows/integration-tests.yml
+    with:
+      driver_repository: datastax/csharp-driver
+      driver_type: datastax
+      scylla_version: LATEST
+
+  scylla-integration-tests:
+    if: ${{ inputs.run_scylla }}
+    strategy:
+      fail-fast: false
+      matrix:
+        scylla_version: [LATEST, PRIOR, LTS-LATEST, LTS-PRIOR]
+    uses: $/.github/workflows/integration-tests.yml
+    with:
+      driver_repository: scylladb/csharp-driver
+      driver_type: scylla
+      driver_ref: ${{ inputs.driver_ref }}
+      driver_version: ${{ inputs.driver_version }}
+      scylla_version: ${{ matrix.scylla_version }}
