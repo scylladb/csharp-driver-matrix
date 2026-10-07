@@ -40,6 +40,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     env:
+      DOTNET_INSTALL_DIR: ${{ runner.temp }}/driver-dotnet
       WORKSPACE: ${{ github.workspace }}
       CCM_DIR: ${{ github.workspace }}/scylla-ccm
       CSHARP_MATRIX_DIR: ${{ github.workspace }}
@@ -231,6 +232,13 @@ jobs:
           path: driver
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Install Scylla driver SDK and net8 runtime
+        if: ${{ inputs.driver_type == 'scylla' }}
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: driver/global.json
+          dotnet-version: 8.0.x
 
       - name: Restore NuGet package cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
