@@ -240,6 +240,45 @@ class Run:
                 raise
         return str(simulacron_path)
 
+    def _installed_dotnet_sdks(self) -> List[Version]:
+        try:
+            output = subprocess.run(["dotnet", "--list-sdks"], env=self.environment, cwd=self._csharp_driver_git,
+                                    capture_output=True, text=True, check=False).stdout
+        except FileNotFoundError:
+            return []
+        sdks = []
+        for line in output.splitlines():
+            try:
+                sdks.append(Version(line.split()[0]))
+            except (IndexError, InvalidVersion):
+                continue  # blank lines and preview SDKs never satisfy a pinned release SDK
+        return sdks
+
+    def _ensure_dotnet_sdk(self) -> None:
+        """Install the Scylla driver's pinned SDK when the matrix image does not provide it.
+
+        GitHub Actions mounts the SDK through DOTNET_INSTALL_DIR, but other callers (e.g. Jenkins)
+        only have the image SDK, which can lag the driver's global.json.
+        """
+        if self._driver_type != "scylla":
+            return
+        policy = scylla_dotnet_policy(self.driver_version)
+        required = Version(policy.sdk_version)
+        if any(sdk.release[:2] == required.release[:2] and sdk >= required for sdk in self._installed_dotnet_sdks()):
+            return
+
+        install_dir = Path.home() / ".local" / "share" / "driver-dotnet"
+        install_script = install_dir / "dotnet-install.sh"
+        install_dir.mkdir(parents=True, exist_ok=True)
+        logging.info("Installing .NET SDK %s into '%s'", policy.sdk_version, install_dir)
+        self._run_command(["curl", "-sSL", "-o", install_script, "https://dot.net/v1/dotnet-install.sh"])
+        self._run_command(["bash", install_script, "--version", policy.sdk_version, "--install-dir", install_dir])
+        if policy.target_framework == "net8":
+            self._run_command(["bash", install_script, "--runtime", "dotnet", "--channel", "8.0",
+                               "--install-dir", install_dir])
+        self.environment["DOTNET_ROOT"] = str(install_dir)
+        self.environment["PATH"] = f"{install_dir}{os.pathsep}{self.environment.get('PATH', '')}"
+
     def _restore_dotnet_dependencies(self) -> None:
         for project in sorted((self._csharp_driver_git / "src").glob("**/*.csproj")):
             self._call_command(["dotnet", "restore", project])
@@ -279,6 +318,7 @@ class Run:
             os.chdir(self._csharp_driver_git)
             if self._checkout_branch() and self._apply_patch_files():
                 simulacron_path = self.ensure_simulacron()
+                self._ensure_dotnet_sdk()
                 for test in self._tests:
                     test_config = test_config_map[test]
                     logging.info("Add JUnit logger for tests %s.", test)
