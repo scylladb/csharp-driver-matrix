@@ -165,3 +165,54 @@ def test_run_command_invokes_subprocess_without_shell(monkeypatch, tmp_path):
     assert captured["cmd"] == ["git", "checkout", "feature/ref; echo unsafe"]
     assert "shell" not in captured["kwargs"]
     assert captured["kwargs"]["cwd"] == tmp_path / "driver repo"
+
+
+def test_ensure_dotnet_sdk_skips_when_compatible_sdk_installed(monkeypatch, tmp_path):
+    runner = make_runner(tmp_path, tag="v3.22.0.5")
+    commands = []
+    monkeypatch.setattr(runner, "_installed_dotnet_sdks", lambda: [run_module.Version("9.0.320")])
+    monkeypatch.setattr(runner, "_run_command", commands.append)
+
+    runner._ensure_dotnet_sdk()
+
+    assert commands == []
+    assert runner.environment.get("DOTNET_ROOT") == run_module.os.environ.get("DOTNET_ROOT")
+
+
+def test_ensure_dotnet_sdk_installs_missing_scylla_sdk(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    runner = make_runner(tmp_path, tag="v3.22.0.5")
+    commands = []
+    monkeypatch.setattr(runner, "_installed_dotnet_sdks", lambda: [run_module.Version("8.0.404")])
+    monkeypatch.setattr(runner, "_run_command", lambda cmd: commands.append([str(arg) for arg in cmd]))
+
+    runner._ensure_dotnet_sdk()
+
+    install_dir = tmp_path / ".local" / "share" / "driver-dotnet"
+    assert commands == [
+        ["curl", "-sSL", "-o", str(install_dir / "dotnet-install.sh"), "https://dot.net/v1/dotnet-install.sh"],
+        ["bash", str(install_dir / "dotnet-install.sh"), "--version", "9.0.318", "--install-dir", str(install_dir)],
+    ]
+    assert runner.environment["DOTNET_ROOT"] == str(install_dir)
+    assert runner.environment["PATH"].startswith(f"{install_dir}{run_module.os.pathsep}")
+
+
+def test_ensure_dotnet_sdk_adds_net8_runtime_for_first_322_release(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    runner = make_runner(tmp_path, tag="v3.22.0.1")
+    commands = []
+    monkeypatch.setattr(runner, "_installed_dotnet_sdks", lambda: [])
+    monkeypatch.setattr(runner, "_run_command", lambda cmd: commands.append([str(arg) for arg in cmd]))
+
+    runner._ensure_dotnet_sdk()
+
+    assert commands[-1][1:6] == [str(tmp_path / ".local/share/driver-dotnet/dotnet-install.sh"),
+                                 "--runtime", "dotnet", "--channel", "8.0"]
+
+
+def test_ensure_dotnet_sdk_ignores_datastax(monkeypatch, tmp_path):
+    runner = make_runner(tmp_path, tag="3.23.0", driver_type="datastax")
+    monkeypatch.setattr(runner, "_installed_dotnet_sdks", lambda: [])
+    monkeypatch.setattr(runner, "_run_command", lambda cmd: (_ for _ in ()).throw(AssertionError(cmd)))
+
+    runner._ensure_dotnet_sdk()
