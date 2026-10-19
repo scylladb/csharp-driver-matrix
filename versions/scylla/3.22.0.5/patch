@@ -1,0 +1,102 @@
+diff --git a/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs b/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs
+index 5e21bc9c..64ca5978 100644
+--- a/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/PreparedStatementsTests.cs
+@@ -679,13 +679,27 @@ namespace Cassandra.IntegrationTests.Core
+         public void Bound_Decimal_Valids()
+         {
+             var psDecimal = Session.Prepare(string.Format("INSERT INTO {0} (id, decimal_sample) VALUES (?, ?)", AllTypesTableName));
++            var psSelect = Session.Prepare(string.Format("SELECT decimal_sample FROM {0} WHERE id = ?", AllTypesTableName));
+ 
+-            //decimal: There is type conversion, all numeric types are valid
+-            AssertValid(Session, psDecimal, 1L);
+-            AssertValid(Session, psDecimal, 1F);
+-            AssertValid(Session, psDecimal, 1D);
+-            AssertValid(Session, psDecimal, 1);
+-            AssertValid(Session, psDecimal, new byte[16]);
++            // decimal: the driver does not convert other numeric CLR types, it serializes them by their runtime type,
++            // so only System.Decimal values (or pre-serialized bytes) produce a valid CQL decimal
++            var values = new[]
++            {
++                1M, -1.5M, 0M, 1.10M, 123456789.123456789M, -0.0000000000000000000000000001M, decimal.MaxValue, decimal.MinValue
++            };
++            foreach (var value in values)
++            {
++                var id = Guid.NewGuid();
++                Session.Execute(psDecimal.Bind(id, value));
++                var actual = Session.Execute(psSelect.Bind(id)).First().GetValue<decimal>("decimal_sample");
++                // Compare the bits to check that the scale is preserved as well as the numeric value
++                CollectionAssert.AreEqual(decimal.GetBits(value), decimal.GetBits(actual), "Round-trip of {0}", value);
++            }
++
++            // Pre-serialized bytes: 4-byte scale 0 followed by a 12-byte varint 0
++            var blobId = Guid.NewGuid();
++            Session.Execute(psDecimal.Bind(blobId, new byte[16]));
++            Assert.AreEqual(0M, Session.Execute(psSelect.Bind(blobId)).First().GetValue<decimal>("decimal_sample"));
+         }
+ 
+         [Test]
+diff --git a/src/Cassandra.IntegrationTests/Core/ZeroTokenNodeTests.cs b/src/Cassandra.IntegrationTests/Core/ZeroTokenNodeTests.cs
+index bee3c18f..e7b519dd 100644
+--- a/src/Cassandra.IntegrationTests/Core/ZeroTokenNodeTests.cs
++++ b/src/Cassandra.IntegrationTests/Core/ZeroTokenNodeTests.cs
+@@ -36,8 +36,9 @@ namespace Cassandra.IntegrationTests.Core
+         protected const string TableName = "zero_token_routing";
+ 
+         /// <summary>
+-        /// Amount of distinct partition keys used to probe the token map. With a handful of token
+-        /// owners this is more than enough to cover every token range at least once.
++        /// Amount of distinct partition keys used to probe the token map. Only suitable for checks that
++        /// must hold for every key: CCM clusters do not use vnodes, so each token owner has a single
++        /// random range that these keys are not guaranteed to cover.
+         /// </summary>
+         protected const int RoutingKeySamples = 60;
+ 
+@@ -344,27 +345,33 @@ namespace Cassandra.IntegrationTests.Core
+             TestCluster.BootstrapNode(ZeroTokenNodeReplacementTests.ZeroTokenNodeId, true);
+             TestUtils.WaitForUp(ZeroTokenAddress, SharedClusterTest.DefaultCassandraPort, 120);
+ 
+-            // The driver has to pick up the tokens of the replacement node without being restarted.
++            // The driver has to pick up the tokens of the replacement node without being restarted and
++            // start using it for token aware routing. Probe the token map at the tokens the node owns
++            // instead of sampling partition keys: CCM clusters do not use vnodes, so the replacement
++            // node owns a single random token range that a fixed set of keys can miss.
+             TestHelper.RetryAssert(
+                 () =>
+                 {
+                     var upgraded = Cluster.AllHosts().SingleOrDefault(h => h.Address.Address.ToString() == ZeroTokenAddress);
+                     Assert.IsNotNull(upgraded, "the replacement node should have been discovered");
+                     Assert.IsTrue(upgraded.IsUp);
+-                    Assert.IsTrue(upgraded.Tokens.Any(), "the replacement node should own tokens");
+-                },
+-                1000,
+-                240);
++                    var tokens = upgraded.Tokens.ToList();
++                    Assert.IsNotEmpty(tokens, "the replacement node should own tokens");
+ 
+-            // And it has to start using it for token aware routing.
+-            TestHelper.RetryAssert(
+-                () =>
+-                {
+-                    var isReplica = Enumerable
+-                                    .Range(0, ZeroTokenNodeReplacementTests.RoutingKeySamples)
+-                                    .SelectMany(i => Cluster.Metadata.GetReplicas(KeyspaceName, GetRoutingKey(i)))
+-                                    .Any(r => r.Host.Address.Address.ToString() == ZeroTokenAddress);
+-                    Assert.IsTrue(isReplica, "the node that replaced the zero-token node should now own data");
++                    var tokenFactory = Cluster.Metadata.GetTokenFactory();
++                    var replicasByToken = Cluster.Metadata.TokenToReplicasMap?.GetByKeyspace(KeyspaceName);
++                    Assert.IsNotNull(replicasByToken, "the token map should contain the test keyspace");
++
++                    foreach (var token in tokens)
++                    {
++                        Assert.IsTrue(
++                            replicasByToken.TryGetValue(tokenFactory.Parse(token), out var replicas),
++                            $"the token map has no entry for token {token} of the node that replaced the zero-token node");
++                        Assert.IsTrue(
++                            replicas.Contains(upgraded),
++                            $"the node that replaced the zero-token node should own the range ending at its token {token}, " +
++                            $"replicas: {string.Join(", ", replicas.Select(h => h.Address))}");
++                    }
+                 },
+                 1000,
+                 240);
